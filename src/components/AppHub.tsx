@@ -1,0 +1,779 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  ExternalLink, 
+  Sparkles, 
+  ShoppingBag, 
+  Share2, 
+  Wrench, 
+  X, 
+  Link, 
+  Camera, 
+  Calculator, 
+  MessageSquare, 
+  Printer, 
+  FileText, 
+  Image as ImageIcon, 
+  UserCheck, 
+  FileSpreadsheet, 
+  Grid, 
+  Briefcase, 
+  GraduationCap, 
+  Award, 
+  Monitor,
+  Search,
+  CheckCircle2,
+  FolderOpen,
+  Upload
+} from 'lucide-react';
+import { Bookmark } from '../types';
+import { dispatchAppNotification } from '../utils/notificationSystem';
+import { useLanguage } from '../LanguageContext';
+
+export interface ServiceApp {
+  id: string;
+  titleBn: string;
+  titleEn: string;
+  category: string;
+  iconType: 'photo' | 'calc' | 'convert' | 'whatsapp' | 'ad' | 'studio' | 'autofill' | 'nid' | 'print' | 'joint';
+  url?: string;
+  badge?: string;
+  description?: string;
+  bgColor: string;
+  accentColor: string;
+}
+
+export const PRESET_SERVICES: ServiceApp[] = [
+  {
+    id: 's1',
+    titleBn: 'ফাইন্ড ফটো',
+    titleEn: 'Find Photo',
+    category: 'ছবি ও স্টুডিও',
+    iconType: 'photo',
+    url: 'https://images.google.com',
+    bgColor: 'from-emerald-500/20 to-teal-500/20',
+    accentColor: 'text-emerald-400',
+    description: 'সহজে আপনার যেকোনো ছবি খুঁজুন ও প্রস্তুত করুন'
+  },
+  {
+    id: 's2',
+    titleBn: 'আইটি হিসাব',
+    titleEn: 'IT Calculator',
+    category: 'হিসাব-নিকাশ',
+    iconType: 'calc',
+    url: '#converters',
+    bgColor: 'from-rose-500/20 to-pink-500/20',
+    accentColor: 'text-rose-400',
+    description: 'ব্যবসায়িক ও ব্যাক্তিগত দ্রুত আইটি ও বাজেট হিসাব'
+  },
+  {
+    id: 's3',
+    titleBn: 'ইমো ফটো কনভার্ট',
+    titleEn: 'IMO Photo Convert',
+    category: 'ছবি ও স্টুডিও',
+    iconType: 'convert',
+    url: 'https://tinypng.com',
+    bgColor: 'from-sky-500/20 to-blue-500/20',
+    accentColor: 'text-sky-400',
+    description: 'লো-রেজোলিউশনের ছবিকে HD কোয়ালিটিতে কনভার্ট করুন'
+  },
+  {
+    id: 's4',
+    titleBn: 'হোয়াটস্ অ্যাপ',
+    titleEn: 'WhatsApp Direct',
+    category: 'যোগাযোগ',
+    iconType: 'whatsapp',
+    url: 'https://web.whatsapp.com',
+    bgColor: 'from-emerald-600/20 to-green-500/20',
+    accentColor: 'text-emerald-400',
+    description: 'নম্বর সেভ না করেই সরাসরি হোয়াটসঅ্যাপে মেসেজ দিন'
+  },
+  {
+    id: 's5',
+    titleBn: 'আমার বিজ্ঞাপন',
+    titleEn: 'My Ads',
+    category: 'মার্কেটিং',
+    iconType: 'ad',
+    url: 'https://facebook.com/adsmanager',
+    bgColor: 'from-amber-500/20 to-orange-500/20',
+    accentColor: 'text-amber-400',
+    description: 'সোশ্যাল মিডিয়া ও গুগল এডভার্টাইজিং ব্যানার'
+  },
+  {
+    id: 's6',
+    titleBn: 'ফটো স্টুডিও Pro',
+    titleEn: 'Photo Studio',
+    category: 'ছবি ও স্টুডিও',
+    iconType: 'studio',
+    url: 'https://pixlr.com',
+    bgColor: 'from-cyan-500/20 to-blue-600/20',
+    accentColor: 'text-cyan-400',
+    description: 'ব্যাকগ্রাউন্ড রিমুভ ও ছবি অটো এডিটিং টুল'
+  },
+  {
+    id: 's7',
+    titleBn: 'টেলিটক জবস্ অটো ফিল',
+    titleEn: 'Teletalk Jobs Auto Fill',
+    category: 'চাকরি ও আবেদন',
+    iconType: 'autofill',
+    url: 'http://alljobs.teletalk.com.bd',
+    bgColor: 'from-teal-500/20 to-emerald-600/20',
+    accentColor: 'text-teal-400',
+    description: 'সরকারি চাকরির ফরম এক ক্লিকে অটোমেটিক ফিল-আপ'
+  },
+  {
+    id: 's8',
+    titleBn: 'NID প্রিন্ট রেডি',
+    titleEn: 'NID Print Ready',
+    category: 'প্রিন্ট ও ডকুমেন্ট',
+    iconType: 'nid',
+    url: 'https://services.nidw.gov.bd',
+    bgColor: 'from-indigo-500/20 to-purple-500/20',
+    accentColor: 'text-indigo-400',
+    description: 'এনআইডি কার্ড লেমিনেটিং সাইজে অটো ফিট প্রিন্টিং'
+  },
+  {
+    id: 's9',
+    titleBn: 'A4 প্রিন্ট রেডি',
+    titleEn: 'A4 Print Layout',
+    category: 'প্রিন্ট ও ডকুমেন্ট',
+    iconType: 'print',
+    url: 'https://docs.google.com',
+    bgColor: 'from-emerald-500/20 to-green-600/20',
+    accentColor: 'text-emerald-400',
+    description: 'ডকুমেন্ট ও সার্টিফিকেট A4 পেপারে নিখুঁত সাজানো'
+  },
+  {
+    id: 's10',
+    titleBn: 'যৌথ ছবি মেকার',
+    titleEn: 'Joint Photo Maker',
+    category: 'ছবি ও স্টুডিও',
+    iconType: 'joint',
+    url: 'https://canva.com',
+    bgColor: 'from-purple-500/20 to-pink-500/20',
+    accentColor: 'text-purple-400',
+    description: 'দুই বা ততোধিক ছবি একসাথে যুক্ত করার সহজ টুল'
+  }
+];
+
+interface AppHubProps {
+  externalSearchQuery?: string;
+}
+
+export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
+  const { t, isBn } = useLanguage();
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchTerm(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
+  
+  const [customBookmarks, setCustomBookmarks] = useState<Bookmark[]>(() => {
+    const saved = localStorage.getItem('hk_bookmarks');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [newIcon, setNewIcon] = useState('');
+  const [newCategory, setNewCategory] = useState('চাকরি ও আবেদন');
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [deleteMode, setDeleteMode] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('hk_bookmarks', JSON.stringify(customBookmarks));
+    window.dispatchEvent(new CustomEvent('hk_bookmarks_updated'));
+  }, [customBookmarks]);
+
+  useEffect(() => {
+    const syncFromStorage = () => {
+      try {
+        const saved = localStorage.getItem('hk_bookmarks');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (JSON.stringify(parsed) !== JSON.stringify(customBookmarks)) {
+            setCustomBookmarks(parsed);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    window.addEventListener('storage', syncFromStorage);
+    window.addEventListener('hk_bookmarks_updated', syncFromStorage);
+    return () => {
+      window.removeEventListener('storage', syncFromStorage);
+      window.removeEventListener('hk_bookmarks_updated', syncFromStorage);
+    };
+  }, []);
+
+  const getNormalizedUrl = (url?: string) => {
+    if (!url) return '#';
+    if (url.startsWith('#') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setNewIcon(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddBookmark = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newUrl.trim()) return;
+
+    let formattedUrl = newUrl.trim();
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+
+    const finalCategory = newCategory === 'custom' ? (customCategoryInput.trim() || 'অন্যান্য') : newCategory;
+
+    const newBookmark: Bookmark = {
+      id: Date.now().toString(),
+      title: newTitle.trim(),
+      url: formattedUrl,
+      category: finalCategory,
+      icon: newIcon.trim() || undefined,
+    };
+
+    setCustomBookmarks((prev) => [...prev, newBookmark]);
+    dispatchAppNotification({
+      titleBn: '📌 নতুন অ্যাপ বুকমার্ক যুক্ত হয়েছে',
+      titleEn: '📌 New App Bookmark Added',
+      messageBn: `অ্যাপ: "${newTitle.trim()}"`,
+      messageEn: `App: "${newTitle.trim()}"`,
+      type: 'info'
+    });
+    setNewTitle('');
+    setNewUrl('');
+    setNewIcon('');
+    setNewCategory('চাকরি ও আবেদন');
+    setCustomCategoryInput('');
+    setIsModalOpen(false);
+  };
+
+  const handleDeleteBookmark = (id: string) => {
+    const target = customBookmarks.find(b => b.id === id);
+    if (target) {
+      dispatchAppNotification({
+        titleBn: '🗑️ বুকমার্ক মুছে ফেলা হয়েছে',
+        titleEn: '🗑️ Bookmark Removed',
+        messageBn: `বুকমার্ক: "${target.title}"`,
+        messageEn: `Bookmark: "${target.title}"`,
+        type: 'info'
+      });
+    }
+    setCustomBookmarks((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  // Build dynamic category list by merging presets and custom bookmark categories
+  const baseCategoryTabs = [
+    { id: 'all', labelBn: 'সব সেবা ও টুলস', labelEn: 'All Services & Tools' },
+    { id: 'চাকরি ও আবেদন', labelBn: 'সরকারি-বেসরকারি চাকরি', labelEn: 'Jobs & Applications' },
+    { id: 'ছবি ও স্টুডিও', labelBn: 'ছবি ও ফটো স্টুডিও', labelEn: 'Photo & Studio' },
+    { id: 'প্রিন্ট ও ডকুমেন্ট', labelBn: 'সিভি ও প্রিন্টিং সেবা', labelEn: 'Print & Documents' },
+    { id: 'হিসাব-নিকাশ', labelBn: 'আইটি ও হিসাব-নিকাশ', labelEn: 'IT & Calculations' },
+    { id: 'যোগাযোগ', labelBn: 'মেসেজিং ও সোশ্যাল', labelEn: 'Messaging & Social' },
+    { id: 'মার্কেটিং', labelBn: 'মার্কেটিং ও বিজ্ঞাপন', labelEn: 'Marketing & Ads' },
+    { id: 'শিক্ষা', labelBn: 'শিক্ষা ও ক্যারিয়ার', labelEn: 'Education & Career' },
+    { id: 'ব্যক্তিগত', labelBn: 'ব্যক্তিগত বুকমার্কস', labelEn: 'Personal Bookmarks' },
+  ];
+
+  // Extract any unique extra categories from custom bookmarks
+  const extraCategories = Array.from(
+    new Set(customBookmarks.map(b => b.category).filter(cat => cat && !baseCategoryTabs.some(t => t.id === cat)))
+  );
+
+  const CATEGORY_TABS = [
+    ...baseCategoryTabs,
+    ...extraCategories.map(cat => ({ id: cat, labelBn: cat, labelEn: cat }))
+  ];
+
+  // Filter preset services
+  const filteredServices = PRESET_SERVICES.filter((item) => {
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    const matchesSearch = item.titleBn.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          item.titleEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
+
+  // Filter custom bookmarks
+  const filteredCustomBookmarks = customBookmarks.filter((book) => {
+    const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
+    const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          book.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (book.category && book.category.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
+
+  // Render icon inside the mock visual window box
+  const renderCardIcon = (iconType: ServiceApp['iconType']) => {
+    switch (iconType) {
+      case 'photo':
+        return (
+          <div className="flex flex-col items-center justify-center gap-1">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">{t('ডাউনলোড', 'Download')}</span>
+          </div>
+        );
+      case 'calc':
+        return (
+          <div className="w-full h-full flex flex-col justify-between p-1.5 bg-slate-900/70 rounded-lg border border-rose-500/30">
+            <div className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[8px] font-mono text-rose-300 flex justify-between">
+              <span>00</span>
+              <span>00</span>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1 bg-emerald-400/80 rounded w-full"></div>
+              <div className="h-1 bg-sky-400/80 rounded w-3/4"></div>
+            </div>
+            <div className="bg-rose-500 text-white text-[8px] font-bold rounded text-center py-0.5 truncate">
+              {t('হিসাব যুক্ত করুন', 'Add Calc')}
+            </div>
+          </div>
+        );
+      case 'convert':
+        return (
+          <div className="flex items-center justify-center gap-1.5 text-sky-400">
+            <div className="w-7 h-7 rounded border border-slate-600 bg-slate-800 flex items-center justify-center shrink-0">
+              <ImageIcon className="w-3.5 h-3.5 opacity-60" />
+            </div>
+            <span className="text-xs font-bold text-sky-400">➔</span>
+            <div className="w-7 h-7 rounded border border-sky-400 bg-sky-500/20 flex items-center justify-center shadow-sm shrink-0">
+              <span className="text-[9px] font-black text-emerald-300">HD</span>
+            </div>
+          </div>
+        );
+      case 'whatsapp':
+        return (
+          <div className="flex flex-col items-center justify-center gap-1 text-emerald-400">
+            <div className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[9px] font-mono">
+              <MessageSquare className="w-3 h-3 text-emerald-400" />
+              <span>WhatsApp</span>
+            </div>
+            <span className="text-[8px] font-bold bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full">{t('মেসেজ পাঠান', 'Send Msg')}</span>
+          </div>
+        );
+      case 'ad':
+        return (
+          <div className="w-full h-full flex flex-col justify-between p-1.5 bg-slate-900/80 rounded-lg border border-amber-500/30">
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <div className="h-1 bg-slate-600 rounded w-10"></div>
+            </div>
+            <div className="h-4 bg-amber-500/20 border border-amber-500/40 rounded flex items-center justify-center">
+              <span className="text-[8px] font-bold text-amber-300">{t('আমার বিজ্ঞাপন', 'My Ad')}</span>
+            </div>
+            <div className="flex justify-end">
+              <span className="text-[7px] bg-amber-500 text-slate-950 px-1.5 rounded font-bold">{t('ডাউনলোড ➔', 'Download ➔')}</span>
+            </div>
+          </div>
+        );
+      case 'studio':
+        return (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500/30 to-blue-500/30 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-inner">
+            <Camera className="w-4 h-4" />
+          </div>
+        );
+      case 'autofill':
+        return (
+          <div className="flex flex-col items-center justify-center gap-1">
+            <FileText className="w-6 h-6 text-teal-400" />
+            <span className="text-[8px] font-black tracking-widest bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded font-mono">AUTO FILL</span>
+          </div>
+        );
+      case 'nid':
+        return (
+          <div className="w-9 h-8 rounded border border-dashed border-indigo-400 bg-indigo-500/10 flex flex-col items-center justify-center text-indigo-300">
+            <Printer className="w-4 h-4" />
+          </div>
+        );
+      case 'print':
+        return (
+          <div className="w-8 h-9 bg-white/10 border border-emerald-400/40 rounded flex flex-col items-center justify-center text-emerald-400 shadow-md">
+            <Printer className="w-4 h-4" />
+          </div>
+        );
+      case 'joint':
+        return (
+          <div className="flex items-center justify-center text-purple-400 gap-0.5">
+            <div className="w-6 h-7 rounded bg-purple-500/30 border border-purple-400/50 flex items-center justify-center">
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
+            <div className="w-6 h-7 rounded bg-pink-500/30 border border-pink-400/50 flex items-center justify-center -ml-1.5">
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        );
+      default:
+        return <Wrench className="w-5 h-5 text-sky-400" />;
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200/80 dark:border-white/5 bg-white/70 dark:bg-slate-900/40 p-5 backdrop-blur-md shadow-lg flex flex-col gap-5">
+      
+      {/* Top Banner Row: Categories Pills like the screenshot */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-sky-500/20 text-sky-400 p-2 rounded-xl border border-sky-500/30">
+              <Grid className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                {t('অ্যাপ হাব ও সার্ভিস পোর্টাল', 'App Hub & Service Portal')} <span className="bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] px-2 py-0.5 rounded-full font-sans font-bold">App Grid</span>
+              </h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                {t('প্রয়োজনীয় সব সার্ভিস ও অ্যাপস এক ক্লিকে হাতের কাছে', 'All essential web services and tools in one structured portal')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={t('খুঁজুন...', 'Search...')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 pr-3 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 w-32 sm:w-40"
+              />
+            </div>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('লিংক যুক্ত করুন', 'Add App Link')}
+            </button>
+          </div>
+        </div>
+
+        {/* Pill category selection tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {CATEGORY_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedCategory(tab.id)}
+              className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all border whitespace-nowrap cursor-pointer ${
+                selectedCategory === tab.id
+                  ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/20 scale-105'
+                  : 'bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/5 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+              }`}
+            >
+              {t(tab.labelBn, tab.labelEn)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Grid View of Cards matching the screenshot */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+        {filteredServices.map((service) => (
+          <a
+            key={service.id}
+            href={getNormalizedUrl(service.url)}
+            target={service.url?.startsWith('#') ? '_self' : '_blank'}
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              dispatchAppNotification({
+                titleBn: `🚀 অ্যাপ ব্যবহৃৎ: ${service.titleBn}`,
+                titleEn: `🚀 App Opened: ${service.titleEn}`,
+                messageBn: `আপনি "${service.titleBn}" ব্যবহার শুরু করেছেন।`,
+                messageEn: `You opened "${service.titleEn}".`,
+                type: 'app'
+              });
+              const url = service.url || '';
+              if (url.startsWith('#')) {
+                e.preventDefault();
+                const el = document.querySelector(url);
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="group relative flex flex-col items-center justify-between p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 dark:hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[135px]"
+          >
+            {/* Top window card frame with 3 dots like user's screenshot */}
+            <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl p-2 flex flex-col items-center justify-center h-20 relative overflow-hidden group-hover:border-sky-500/30 transition-colors">
+              
+              {/* Top window controls (Red, Yellow, Green dots) */}
+              <div className="absolute top-1.5 right-2 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+              </div>
+
+              {/* Dynamic Icon Artwork */}
+              {renderCardIcon(service.iconType)}
+            </div>
+
+            {/* Bottom Title Label */}
+            <div className="mt-2 text-center w-full px-1">
+              <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-sky-500 dark:group-hover:text-sky-400 transition-colors truncate">
+                {t(service.titleBn, service.titleEn)}
+              </h4>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-sans truncate mt-0.5">
+                {service.titleEn}
+              </p>
+            </div>
+          </a>
+        ))}
+
+        {/* User Added Custom Bookmarks (Rendered in same card style) */}
+        {filteredCustomBookmarks.map((book) => (
+          <div
+            key={book.id}
+            className="group relative flex flex-col items-center justify-between p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[135px]"
+          >
+            <button
+              onClick={() => handleDeleteBookmark(book.id)}
+              className="absolute top-1.5 right-1.5 z-10 p-1 text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              title={t('মুছুন', 'Delete')}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+
+            <a
+              href={getNormalizedUrl(book.url)}
+              target={book.url?.startsWith('#') ? '_self' : '_blank'}
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                dispatchAppNotification({
+                  titleBn: `🌐 বুকমার্ক খোলা হয়েছে: ${book.title}`,
+                  titleEn: `🌐 Opened Bookmark: ${book.title}`,
+                  messageBn: `আপনি "${book.title}" বুকমার্কটি ভিজিট করেছেন।`,
+                  messageEn: `You opened "${book.title}".`,
+                  type: 'app'
+                });
+                const url = book.url || '';
+                if (url.startsWith('#')) {
+                  e.preventDefault();
+                  const el = document.querySelector(url);
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="w-full h-full flex flex-col items-center justify-between"
+            >
+              <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl p-2 flex flex-col items-center justify-center h-20 relative overflow-hidden">
+                {/* Window control dots */}
+                <div className="absolute top-1.5 right-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                </div>
+
+                {book.icon ? (
+                  <img
+                    src={book.icon}
+                    alt={book.title}
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 object-contain rounded-lg shadow-sm max-h-12"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 font-extrabold text-sm uppercase">
+                    {book.title.charAt(0)}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-2 text-center w-full px-1">
+                <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-sky-400 transition-colors truncate">
+                  {book.title}
+                </h4>
+                <p className="text-[9px] text-sky-500/80 dark:text-sky-400/80 font-sans font-semibold truncate mt-0.5">
+                  {book.category || 'Custom Link'}
+                </p>
+              </div>
+            </a>
+          </div>
+        ))}
+      </div>
+
+      {/* Custom Add Bookmark Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-2xl max-w-sm w-full animate-scaleIn">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Link className="w-4 h-4 text-sky-500" />
+                {t('নতুন অ্যাপ বা সার্ভিস লিংক যুক্ত করুন', 'Add New App or Service Link')}
+              </h4>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setNewIcon('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBookmark} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                  {t('ক্যাটাগরি নির্বাচন করুন', 'Select Category')}
+                </label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 text-slate-800 dark:text-white font-medium cursor-pointer"
+                >
+                  <option value="চাকরি ও আবেদন">{t('সরকারি-বেসরকারি চাকরি (Jobs)', 'Jobs & Applications')}</option>
+                  <option value="ছবি ও স্টুডিও">{t('ছবি ও ফটো স্টুডিও (Photo)', 'Photo & Studio')}</option>
+                  <option value="প্রিন্ট ও ডকুমেন্ট">{t('সিভি ও প্রিন্টিং সেবা (Print)', 'Print & Documents')}</option>
+                  <option value="হিসাব-নিকাশ">{t('আইটি ও হিসাব-নিকাশ (IT)', 'IT & Calculations')}</option>
+                  <option value="যোগাযোগ">{t('মেসেজিং ও সোশ্যাল (Social)', 'Messaging & Social')}</option>
+                  <option value="মার্কেটিং">{t('মার্কেটিং ও বিজ্ঞাপন (Ads)', 'Marketing & Ads')}</option>
+                  <option value="শিক্ষা">{t('শিক্ষা ও ক্যারিয়ার (Education)', 'Education')}</option>
+                  <option value="ব্যক্তিগত">{t('ব্যক্তিগত (Personal)', 'Personal')}</option>
+                  <option value="custom">{t('+ নতুন ক্যাটাগরি তৈরি করুন (New Category)', '+ Add New Custom Category')}</option>
+                </select>
+              </div>
+
+              {newCategory === 'custom' && (
+                <div>
+                  <label className="block text-[10px] font-bold text-sky-500 mb-1">
+                    {t('নতুন ক্যাটাগরির নাম লিখুন', 'Custom Category Name')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={t('যেমন: বিনোদন, ই-কমার্স...', 'e.g. Entertainment, E-commerce...')}
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    className="w-full bg-sky-50/50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-700/50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 text-slate-800 dark:text-white font-medium"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                  {t('অ্যাপ বা সার্ভিসের নাম (Title)', 'App or Service Name')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={t('যেমন: পাসপোর্ট পোর্টাল', 'e.g., Passport Portal')}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 text-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                  {t('ইউআরএল (Web URL)', 'Web URL')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="https://passport.gov.bd"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 text-slate-800 dark:text-white font-mono"
+                />
+              </div>
+
+              {/* App Image / Logo Upload Section */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3 text-sky-500" /> {t('অ্যাপ আইকন / ছবি (ঐচ্ছিক)', 'App Icon / Image (Optional)')}
+                  </span>
+                  {newIcon && (
+                    <button
+                      type="button"
+                      onClick={() => setNewIcon('')}
+                      className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                    >
+                      {t('ছবি রিমুভ', 'Remove Image')}
+                    </button>
+                  )}
+                </label>
+
+                {newIcon ? (
+                  <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-white/10">
+                    <img
+                      src={newIcon}
+                      alt="Preview"
+                      referrerPolicy="no-referrer"
+                      className="w-10 h-10 object-contain rounded-lg border border-slate-200 dark:border-white/10 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-emerald-500 font-bold truncate">✓ {t('ইমেজ সিলেক্ট করা হয়েছে', 'Image selected')}</p>
+                      <p className="text-[9px] text-slate-400 truncate font-mono">Image attached</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="flex items-center justify-center gap-1.5 p-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10 hover:border-sky-500 dark:hover:border-sky-500 cursor-pointer bg-white dark:bg-slate-900 transition-colors text-xs text-slate-600 dark:text-slate-300">
+                      <Upload className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{t('ডিভাইস থেকে ফটো আপলোড করুন', 'Upload photo from device')}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIconUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <input
+                      type="url"
+                      placeholder={t('অথবা ইমেজ URL পেস্ট করুন...', 'Or paste image URL...')}
+                      value={newIcon}
+                      onChange={(e) => setNewIcon(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setNewIcon('');
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer"
+                >
+                  {t('বাতিল', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer shadow-sm font-bold"
+                >
+                  {t('সংরক্ষণ করুন', 'Save Link')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Hater Kache - হাতের কাছে",
+  "description": "An premium, elegant All-in-One Personal Productivity Hub with a built-in AI assistant, smart search, converters, customizable categorized bookmarks, task tracker, Pomodoro timer, and an autosaving notepad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
