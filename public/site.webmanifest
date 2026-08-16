@@ -1,0 +1,15 @@
+{
+  "name": "হাতের কাছে — Hater Kache",
+  "short_name": "হাতের কাছে",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#061224",
+  "background_color": "#061224",
+  "display": "standalone",
+  "start_url": "/"
+}
