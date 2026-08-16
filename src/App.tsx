@@ -139,15 +139,8 @@ export default function App() {
   // Time & Greeting states
   const [time, setTime] = useState(new Date());
 
-  // App 1-second initial splash loader state
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  // App splash loader state
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Ensure application starts at the top of Start page on load
   useEffect(() => {
@@ -1278,7 +1271,7 @@ export default function App() {
 
               {/* Main App Hub Full View */}
               <div id="app-hub-section">
-                <AppHub externalSearchQuery={searchQuery} userId={currentUser?.uid} />
+                <AppHub externalSearchQuery={searchQuery} userId={currentUser?.uid} userName={currentUser?.name} />
               </div>
             </motion.div>
           )}

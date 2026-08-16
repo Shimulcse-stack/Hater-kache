@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { LanguageProvider } from './LanguageContext.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 // Catch and suppress benign Vite WebSocket HMR errors in sandboxed preview mode
 if (typeof window !== 'undefined') {
@@ -21,9 +22,12 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <LanguageProvider>
-      <App />
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <App />
+      </LanguageProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
+
 

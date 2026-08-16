@@ -184,9 +184,11 @@ export default function ProductivityStation({ userId }: ProductivityStationProps
   useEffect(() => {
     if (!userId) return;
     const unsubscribe = subscribeUserTasks(userId, (remoteTasks) => {
-      if (remoteTasks && remoteTasks.length > 0) {
-        setTasks(remoteTasks);
-        localStorage.setItem(storageKey, JSON.stringify(remoteTasks));
+      if (Array.isArray(remoteTasks)) {
+        if (remoteTasks.length > 0) {
+          setTasks(remoteTasks);
+          localStorage.setItem(storageKey, JSON.stringify(remoteTasks));
+        }
       }
     });
     return () => unsubscribe();

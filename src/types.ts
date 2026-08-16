@@ -17,6 +17,8 @@ export interface Bookmark {
   url: string;
   category: string;
   icon?: string;
+  addedBy?: string;
+  userId?: string;
 }
 
 export type BookmarkCategory = 'AI Tools' | 'E-commerce' | 'Social Media' | 'Utilities';

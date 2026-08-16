@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Globe, 
   Sparkles, 
@@ -7,12 +7,7 @@ import {
   EyeOff, 
   Check, 
   X,
-  User,
-  ShieldCheck,
-  Lock,
-  Mail,
-  Plus,
-  CheckCircle2
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
@@ -94,15 +89,41 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
+    if (isSignUp && password.length < 6) {
+      setErrorMsg(t('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।', 'Password must be at least 6 characters long.'));
+      return;
+    }
+
     setIsLoading(true);
 
-    try {
-      let user: UserProfile;
-      if (isSignUp) {
-        user = await signUpWithEmailReal(email.trim(), password, name.trim());
-      } else {
-        user = await signInWithEmailReal(email.trim(), password);
+    // Direct Sign Up Flow without verification step
+    if (isSignUp) {
+      try {
+        const user = await signUpWithEmailReal(email.trim(), password, name.trim());
+        setIsLoading(false);
+        triggerSuccessLogin(user);
+      } catch (err: any) {
+        console.warn("Auth signup error:", err);
+        setIsLoading(false);
+        const code = err?.code || '';
+        const message = err?.message || '';
+
+        if (code === 'auth/email-already-in-use') {
+          setErrorMsg(t('এই ইমেইল দিয়ে ইতোমধ্যে অ্যাকাউন্ট রয়েছে। অনুগ্রহ করে লগইন করুন।', 'This email is already in use. Please log in instead.'));
+        } else if (code === 'auth/invalid-email') {
+          setErrorMsg(t('সঠিক ইমেইল এড্রেস প্রদান করুন।', 'Please provide a valid email address.'));
+        } else if (code === 'auth/weak-password') {
+          setErrorMsg(t('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।', 'Password must be at least 6 characters long.'));
+        } else {
+          setErrorMsg(message || t('রেজিস্ট্রেশন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'Registration failed. Please try again.'));
+        }
       }
+      return;
+    }
+
+    // Direct Login Flow
+    try {
+      const user = await signInWithEmailReal(email.trim(), password);
       setIsLoading(false);
       triggerSuccessLogin(user);
     } catch (err: any) {
@@ -139,7 +160,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       const cleanUid = `oauth_${selectedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const user: UserProfile = {
         uid: cleanUid,
-        name: selectedName || 'Shimul Hossain',
+        name: selectedName || 'Sibly Sadik Shimul',
         email: selectedEmail || 'shimul.cse28@gmail.com',
         avatar: selectedAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         isPro: true
@@ -155,7 +176,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       setIsLoading(false);
       const demoUser: UserProfile = {
         uid: 'demo_guest_user_shimul',
-        name: 'Shimul Hossain',
+        name: 'Sibly Sadik Shimul',
         email: 'shimul.cse28@gmail.com',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         isPro: true
@@ -345,16 +366,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
             {/* Header Title */}
             <div className="mb-6">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                {isSignUp 
-                  ? t('নতুন একাউন্ট খুলুন!', 'Create an Account!') 
-                  : t('Welcome back!', 'Welcome back!')}
-              </h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                {isSignUp 
-                  ? t('আপনার নাম, ইমেইল এবং পাসওয়ার্ড দিয়ে নতুন অ্যাকাউন্ট খুলুন।', 'Sign up with your name, email and password to get started.') 
-                  : t('আপনার নিবন্ধিত ইমেইল ও পাসওয়ার্ড দিয়ে একাউন্টে প্রবেশ করুন।', 'Sign in with your registered email & password to access your space.')}
-              </p>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  {isSignUp 
+                    ? t('নতুন একাউন্ট খুলুন!', 'Create an Account!') 
+                    : t('Welcome back!', 'Welcome back!')}
+                </h2>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  {isSignUp 
+                    ? t('আপনার নাম, ইমেইল এবং পাসওয়ার্ড দিয়ে নতুন অ্যাকাউন্ট খুলুন।', 'Sign up with your name, email and password to get started.') 
+                    : t('আপনার নিবন্ধিত ইমেইল ও পাসওয়ার্ড দিয়ে একাউন্টে প্রবেশ করুন।', 'Sign in with your registered email & password to access your space.')}
+                </p>
+              </div>
             </div>
 
             {/* Form error notification */}
@@ -376,7 +399,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   <input
                     type="text"
                     required={isSignUp}
-                    placeholder="Shimul Hossain"
+                    placeholder="Enter Your Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-white text-slate-900 rounded-xl px-4 py-3 text-xs font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ff5a36] transition-all"

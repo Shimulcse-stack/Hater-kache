@@ -66,6 +66,53 @@ try {
   googleProvider.addScope('openid');
 } catch (e) {}
 
+// Error handler as mandated by Firebase skill
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
+      tenantId: auth?.currentUser?.tenantId,
+      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.warn('Firestore Error Context:', JSON.stringify(errInfo));
+}
+
 // Helper function to convert Firebase User to UserProfile
 export const formatFirebaseUser = (user: FirebaseUser): UserProfile => {
   return {
@@ -451,6 +498,7 @@ export const saveUserProfileToFirestore = async (profile: UserProfile) => {
 // --- TASKS (Per-User Subcollection /users/{userId}/tasks/{taskId}) ---
 export const subscribeUserTasks = (userId: string, callback: (tasks: Task[]) => void) => {
   if (!db || !userId) return () => {};
+  const path = `users/${userId}/tasks`;
   try {
     const tasksRef = collection(db, 'users', userId, 'tasks');
     return onSnapshot(tasksRef, (snapshot) => {
@@ -469,16 +517,17 @@ export const subscribeUserTasks = (userId: string, callback: (tasks: Task[]) => 
       tasksList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(tasksList);
     }, (error) => {
-      console.warn("Firestore subscribeUserTasks error:", error);
+      handleFirestoreError(error, OperationType.LIST, path);
     });
   } catch (e) {
-    console.warn("subscribeUserTasks failed:", e);
+    handleFirestoreError(e, OperationType.LIST, path);
     return () => {};
   }
 };
 
 export const saveUserTaskToFirestore = async (userId: string, task: Task) => {
   if (!db || !userId) return;
+  const path = `users/${userId}/tasks/${task.id}`;
   try {
     const taskRef = doc(db, 'users', userId, 'tasks', task.id);
     await setDoc(taskRef, {
@@ -490,23 +539,86 @@ export const saveUserTaskToFirestore = async (userId: string, task: Task) => {
       createdAt: task.createdAt
     });
   } catch (err) {
-    console.warn("Firestore saveUserTask error:", err);
+    handleFirestoreError(err, OperationType.WRITE, path);
   }
 };
 
 export const deleteUserTaskFromFirestore = async (userId: string, taskId: string) => {
   if (!db || !userId) return;
+  const path = `users/${userId}/tasks/${taskId}`;
   try {
     const taskRef = doc(db, 'users', userId, 'tasks', taskId);
     await deleteDoc(taskRef);
   } catch (err) {
-    console.warn("Firestore deleteUserTask error:", err);
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+};
+
+// --- GLOBAL PUBLIC BOOKMARKS (Shared across all users in /public_bookmarks) ---
+export const subscribeGlobalBookmarks = (callback: (bookmarks: Bookmark[]) => void) => {
+  if (!db) return () => {};
+  const path = 'public_bookmarks';
+  try {
+    const bookmarksRef = collection(db, 'public_bookmarks');
+    return onSnapshot(bookmarksRef, (snapshot) => {
+      const bookmarksList: Bookmark[] = [];
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        bookmarksList.push({
+          id: d.id || docSnap.id,
+          title: d.title || '',
+          url: d.url || '',
+          category: d.category || 'General',
+          icon: d.icon || '',
+          addedBy: d.addedBy || '',
+          userId: d.userId || ''
+        });
+      });
+      callback(bookmarksList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
+  } catch (e) {
+    handleFirestoreError(e, OperationType.LIST, path);
+    return () => {};
+  }
+};
+
+export const saveGlobalBookmarkToFirestore = async (bookmark: Bookmark, addedByName?: string, uId?: string) => {
+  if (!db) return;
+  const path = `public_bookmarks/${bookmark.id}`;
+  try {
+    const bookmarkRef = doc(db, 'public_bookmarks', bookmark.id);
+    await setDoc(bookmarkRef, {
+      id: bookmark.id,
+      title: bookmark.title,
+      url: bookmark.url,
+      category: bookmark.category,
+      icon: bookmark.icon || '',
+      addedBy: addedByName || 'Anonymous User',
+      userId: uId || 'anonymous',
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deleteGlobalBookmarkFromFirestore = async (bookmarkId: string) => {
+  if (!db) return;
+  const path = `public_bookmarks/${bookmarkId}`;
+  try {
+    const bookmarkRef = doc(db, 'public_bookmarks', bookmarkId);
+    await deleteDoc(bookmarkRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 };
 
 // --- BOOKMARKS (Per-User Subcollection /users/{userId}/bookmarks/{bookmarkId}) ---
 export const subscribeUserBookmarks = (userId: string, callback: (bookmarks: Bookmark[]) => void) => {
   if (!db || !userId) return () => {};
+  const path = `users/${userId}/bookmarks`;
   try {
     const bookmarksRef = collection(db, 'users', userId, 'bookmarks');
     return onSnapshot(bookmarksRef, (snapshot) => {
@@ -523,16 +635,17 @@ export const subscribeUserBookmarks = (userId: string, callback: (bookmarks: Boo
       });
       callback(bookmarksList);
     }, (error) => {
-      console.warn("Firestore subscribeUserBookmarks error:", error);
+      handleFirestoreError(error, OperationType.LIST, path);
     });
   } catch (e) {
-    console.warn("subscribeUserBookmarks failed:", e);
+    handleFirestoreError(e, OperationType.LIST, path);
     return () => {};
   }
 };
 
 export const saveUserBookmarkToFirestore = async (userId: string, bookmark: Bookmark) => {
   if (!db || !userId) return;
+  const path = `users/${userId}/bookmarks/${bookmark.id}`;
   try {
     const bookmarkRef = doc(db, 'users', userId, 'bookmarks', bookmark.id);
     await setDoc(bookmarkRef, {
@@ -545,23 +658,25 @@ export const saveUserBookmarkToFirestore = async (userId: string, bookmark: Book
       createdAt: new Date().toISOString()
     });
   } catch (err) {
-    console.warn("Firestore saveUserBookmark error:", err);
+    handleFirestoreError(err, OperationType.WRITE, path);
   }
 };
 
 export const deleteUserBookmarkFromFirestore = async (userId: string, bookmarkId: string) => {
   if (!db || !userId) return;
+  const path = `users/${userId}/bookmarks/${bookmarkId}`;
   try {
     const bookmarkRef = doc(db, 'users', userId, 'bookmarks', bookmarkId);
     await deleteDoc(bookmarkRef);
   } catch (err) {
-    console.warn("Firestore deleteUserBookmark error:", err);
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 };
 
 // --- SCRATCHPAD (Per-User Document /users/{userId}/scratchpad/notes) ---
 export const subscribeUserScratchpad = (userId: string, callback: (content: string) => void) => {
   if (!db || !userId) return () => {};
+  const path = `users/${userId}/scratchpad/notes`;
   try {
     const scratchRef = doc(db, 'users', userId, 'scratchpad', 'notes');
     return onSnapshot(scratchRef, (docSnap) => {
@@ -570,16 +685,17 @@ export const subscribeUserScratchpad = (userId: string, callback: (content: stri
         callback(data.content || '');
       }
     }, (error) => {
-      console.warn("Firestore subscribeUserScratchpad error:", error);
+      handleFirestoreError(error, OperationType.GET, path);
     });
   } catch (e) {
-    console.warn("subscribeUserScratchpad failed:", e);
+    handleFirestoreError(e, OperationType.GET, path);
     return () => {};
   }
 };
 
 export const saveUserScratchpadToFirestore = async (userId: string, content: string) => {
   if (!db || !userId) return;
+  const path = `users/${userId}/scratchpad/notes`;
   try {
     const scratchRef = doc(db, 'users', userId, 'scratchpad', 'notes');
     await setDoc(scratchRef, {
@@ -588,6 +704,6 @@ export const saveUserScratchpadToFirestore = async (userId: string, content: str
       updatedAt: new Date().toISOString()
     });
   } catch (err) {
-    console.warn("Firestore saveUserScratchpad error:", err);
+    handleFirestoreError(err, OperationType.WRITE, path);
   }
 };
