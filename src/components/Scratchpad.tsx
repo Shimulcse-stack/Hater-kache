@@ -1,25 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Trash, Check, Sparkles, FileText, CheckCircle } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { dispatchAppNotification } from '../utils/notificationSystem';
+import { subscribeUserScratchpad, saveUserScratchpadToFirestore } from '../lib/firebase';
 
-export default function Scratchpad() {
+interface ScratchpadProps {
+  className?: string;
+  userId?: string;
+}
+
+export default function Scratchpad({ className = '', userId }: ScratchpadProps) {
   const { t } = useLanguage();
+  const storageKey = userId ? `hk_scratchpad_${userId}` : 'hk_scratchpad';
+
   const [note, setNote] = useState(() => {
-    const saved = localStorage.getItem('hk_scratchpad');
+    const saved = localStorage.getItem(storageKey);
     return saved || '';
   });
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isRemoteUpdate = useRef(false);
+
+  // Real-time Firestore sync
+  useEffect(() => {
+    if (!userId) return;
+    const unsubscribe = subscribeUserScratchpad(userId, (remoteContent) => {
+      isRemoteUpdate.current = true;
+      setNote(remoteContent);
+      localStorage.setItem(storageKey, remoteContent);
+      setTimeout(() => {
+        isRemoteUpdate.current = false;
+      }, 100);
+    });
+    return () => unsubscribe();
+  }, [userId, storageKey]);
 
   useEffect(() => {
-    localStorage.setItem('hk_scratchpad', note);
-    setIsSaving(true);
-    const timeout = setTimeout(() => {
-      setIsSaving(false);
-    }, 600);
-    return () => clearTimeout(timeout);
-  }, [note]);
+    localStorage.setItem(storageKey, note);
+    if (!isRemoteUpdate.current && userId) {
+      setIsSaving(true);
+      const timeout = setTimeout(() => {
+        saveUserScratchpadToFirestore(userId, note);
+        setIsSaving(false);
+      }, 700);
+      return () => clearTimeout(timeout);
+    }
+  }, [note, userId, storageKey]);
 
   const handleCopy = async () => {
     try {
@@ -62,7 +88,7 @@ export default function Scratchpad() {
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 dark:border-white/5 bg-white/5 dark:bg-slate-900/30 p-5 backdrop-blur-md shadow-xl flex flex-col justify-between h-full min-h-[380px]">
+    <div className={`rounded-2xl border border-white/10 dark:border-white/5 bg-white/5 dark:bg-slate-900/30 p-5 backdrop-blur-md shadow-xl flex flex-col justify-between h-full min-h-[300px] flex-1 ${className}`}>
       
       {/* Header */}
       <div>

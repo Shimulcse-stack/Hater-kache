@@ -3,8 +3,17 @@ import { Play, Pause, RotateCcw, CheckSquare, Square, Plus, Trash2, Calendar, Sp
 import { Task } from '../types';
 import { useLanguage } from '../LanguageContext';
 import { dispatchAppNotification } from '../utils/notificationSystem';
+import { 
+  subscribeUserTasks, 
+  saveUserTaskToFirestore, 
+  deleteUserTaskFromFirestore 
+} from '../lib/firebase';
 
-export default function ProductivityStation() {
+interface ProductivityStationProps {
+  userId?: string;
+}
+
+export default function ProductivityStation({ userId }: ProductivityStationProps = {}) {
   const { t, isBn } = useLanguage();
 
   // --- POMODORO TIMER STATES ---
@@ -30,29 +39,7 @@ export default function ProductivityStation() {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
-          // Exactly 1 minute remaining (60 seconds) before session ends
-          if (prev === 61) {
-            playBeepSound();
-            dispatchAppNotification({
-              titleBn: '⏰ ১ মিনিট বাকি (টাইমার)',
-              titleEn: '⏰ 1 Minute Left (Timer)',
-              messageBn: `আপনার পোমোডোরো (${timerMode === 'pomodoro' ? 'কাজ' : 'বিরতি'}) সেশন শেষ হতে ঠিক ১ মিনিট বাকি আছে!`,
-              messageEn: `1 minute remaining in your ${timerMode === 'pomodoro' ? 'work' : 'break'} session!`,
-              type: 'alert'
-            });
-          }
-
           if (prev <= 1) {
-            setIsTimerRunning(false);
-            if (timerRef.current) clearInterval(timerRef.current);
-            playBeepSound();
-            dispatchAppNotification({
-              titleBn: '🎉 পোমোডোরো সময় সম্পূর্ণ!',
-              titleEn: '🎉 Timer Session Completed!',
-              messageBn: `আপনার পোমোডোরো (${timerMode === 'pomodoro' ? 'কাজ' : 'বিরতি'}) সেশন সম্পূর্ণ হয়েছে।`,
-              messageEn: `Your ${timerMode} session has ended!`,
-              type: 'timer'
-            });
             return 0;
           }
           return prev - 1;
@@ -65,7 +52,34 @@ export default function ProductivityStation() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isTimerRunning, timerMode]);
+  }, [isTimerRunning]);
+
+  // Handle timer 1-minute alert & completion notifications cleanly outside updater
+  useEffect(() => {
+    if (!isTimerRunning) return;
+
+    if (timeLeft === 60) {
+      playBeepSound();
+      dispatchAppNotification({
+        titleBn: '⏰ ১ মিনিট বাকি (টাইমার)',
+        titleEn: '⏰ 1 Minute Left (Timer)',
+        messageBn: `আপনার পোমোডোরো (${timerMode === 'pomodoro' ? 'কাজ' : 'বিরতি'}) সেশন শেষ হতে ঠিক ১ মিনিট বাকি আছে!`,
+        messageEn: `1 minute remaining in your ${timerMode === 'pomodoro' ? 'work' : 'break'} session!`,
+        type: 'alert'
+      });
+    } else if (timeLeft === 0) {
+      setIsTimerRunning(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+      playBeepSound();
+      dispatchAppNotification({
+        titleBn: '🎉 পোমোডোরো সময় সম্পূর্ণ!',
+        titleEn: '🎉 Timer Session Completed!',
+        messageBn: `আপনার পোমোডোরো (${timerMode === 'pomodoro' ? 'কাজ' : 'বিরতি'}) সেশন সম্পূর্ণ হয়েছে।`,
+        messageEn: `Your ${timerMode} session has ended!`,
+        type: 'timer'
+      });
+    }
+  }, [timeLeft, isTimerRunning, timerMode]);
 
   // Synthesis alert sound using Web Audio API so it's fully self-contained!
   const playBeepSound = () => {
@@ -152,15 +166,32 @@ export default function ProductivityStation() {
 
 
   // --- TO-DO PLANNER STATES ---
+  const storageKey = userId ? `hk_tasks_${userId}` : 'hk_tasks';
+
   const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('hk_tasks');
-    if (saved) return JSON.parse(saved);
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [
       { id: '1', text: 'হাতের কাছে ড্যাশবোর্ড কাস্টমাইজ করুন', completed: false, priority: 'high', createdAt: new Date().toISOString() },
       { id: '2', text: 'একটি ২৫ মিনিটের পোমোডোরো সেশন শেষ করুন', completed: true, priority: 'medium', createdAt: new Date().toISOString() },
       { id: '3', text: 'এআই সহকারীর সাথে চ্যাট করুন', completed: false, priority: 'low', createdAt: new Date().toISOString() },
     ];
   });
+
+  // Sync with Firestore subcollection when userId is present
+  useEffect(() => {
+    if (!userId) return;
+    const unsubscribe = subscribeUserTasks(userId, (remoteTasks) => {
+      if (remoteTasks && remoteTasks.length > 0) {
+        setTasks(remoteTasks);
+        localStorage.setItem(storageKey, JSON.stringify(remoteTasks));
+      }
+    });
+    return () => unsubscribe();
+  }, [userId, storageKey]);
+
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [taskFilter, setTaskFilter] = useState<'all' | 'active' | 'completed'>('all');
@@ -205,8 +236,8 @@ export default function ProductivityStation() {
   };
 
   useEffect(() => {
-    localStorage.setItem('hk_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    localStorage.setItem(storageKey, JSON.stringify(tasks));
+  }, [tasks, storageKey]);
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,6 +252,9 @@ export default function ProductivityStation() {
     };
 
     setTasks((prev) => [newTask, ...prev]);
+    if (userId) {
+      saveUserTaskToFirestore(userId, newTask);
+    }
     dispatchAppNotification({
       titleBn: '📝 নতুন টাস্ক যুক্ত হয়েছে',
       titleEn: '📝 New Task Added',
@@ -233,27 +267,32 @@ export default function ProductivityStation() {
   };
 
   const toggleTaskCompleted = (id: string) => {
+    const targetTask = tasks.find((t) => t.id === id);
+    if (targetTask) {
+      const nextState = !targetTask.completed;
+      const updatedTask: Task = { ...targetTask, completed: nextState };
+      if (userId) {
+        saveUserTaskToFirestore(userId, updatedTask);
+      }
+      dispatchAppNotification({
+        titleBn: nextState ? '✅ টাস্ক সম্পন্ন!' : '📝 টাস্ক পুনর্নির্ধারিত',
+        titleEn: nextState ? '✅ Task Completed!' : '📝 Task Reopened',
+        messageBn: `টাস্ক: "${targetTask.text}"`,
+        messageEn: `Task: "${targetTask.text}"`,
+        type: 'info'
+      });
+    }
     setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === id) {
-          const nextState = !t.completed;
-          dispatchAppNotification({
-            titleBn: nextState ? '✅ টাস্ক সম্পন্ন!' : '📝 টাস্ক পুনর্নির্ধারিত',
-            titleEn: nextState ? '✅ Task Completed!' : '📝 Task Reopened',
-            messageBn: `টাস্ক: "${t.text}"`,
-            messageEn: `Task: "${t.text}"`,
-            type: 'info'
-          });
-          return { ...t, completed: nextState };
-        }
-        return t;
-      })
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
     );
   };
 
   const handleDeleteTask = (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
     if (taskToDelete) {
+      if (userId) {
+        deleteUserTaskFromFirestore(userId, id);
+      }
       dispatchAppNotification({
         titleBn: '🗑️ টাস্ক মুছে ফেলা হয়েছে',
         titleEn: '🗑️ Task Deleted',

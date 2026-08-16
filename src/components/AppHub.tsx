@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -25,11 +25,20 @@ import {
   Search,
   CheckCircle2,
   FolderOpen,
-  Upload
+  Upload,
+  Edit2,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Bookmark } from '../types';
 import { dispatchAppNotification } from '../utils/notificationSystem';
 import { useLanguage } from '../LanguageContext';
+import { 
+  subscribeUserBookmarks, 
+  saveUserBookmarkToFirestore, 
+  deleteUserBookmarkFromFirestore 
+} from '../lib/firebase';
 
 export interface ServiceApp {
   id: string;
@@ -157,11 +166,43 @@ export const PRESET_SERVICES: ServiceApp[] = [
   }
 ];
 
+export const BASE_CATEGORY_TABS = [
+  { id: 'all', labelBn: 'সব সেবা ও টুলস', labelEn: 'All Services & Tools' },
+  { id: 'চাকরি ও আবেদন', labelBn: 'সরকারি-বেসরকারি চাকরি', labelEn: 'Jobs & Applications' },
+  { id: 'ছবি ও স্টুডিও', labelBn: 'ছবি ও ফটো স্টুডিও', labelEn: 'Photo & Studio' },
+  { id: 'প্রিন্ট ও ডকুমেন্ট', labelBn: 'সিভি ও প্রিন্টিং সেবা', labelEn: 'Print & Documents' },
+  { id: 'হিসাব-নিকাশ', labelBn: 'আইটি ও হিসাব-নিকাশ', labelEn: 'IT & Calculations' },
+  { id: 'যোগাযোগ', labelBn: 'মেসেজিং ও সোশ্যাল', labelEn: 'Messaging & Social' },
+  { id: 'মার্কেটিং', labelBn: 'মার্কেটিং ও বিজ্ঞাপন', labelEn: 'Marketing & Ads' },
+  { id: 'শিক্ষা', labelBn: 'শিক্ষা ও ক্যারিয়ার', labelEn: 'Education & Career' },
+  { id: 'ব্যক্তিগত', labelBn: 'ব্যক্তিগত বুকমার্কস', labelEn: 'Personal Bookmarks' },
+];
+
+export const getHubStats = () => {
+  try {
+    const saved = localStorage.getItem('hk_bookmarks');
+    const custom: Bookmark[] = saved ? JSON.parse(saved) : [];
+    const baseCatIds = BASE_CATEGORY_TABS.filter(t => t.id !== 'all').map(t => t.id);
+    const customCats = custom.map(c => c.category).filter(Boolean);
+    const uniqueCategories = new Set([...baseCatIds, ...customCats]);
+    return {
+      servicesCount: PRESET_SERVICES.length + custom.length,
+      categoriesCount: uniqueCategories.size
+    };
+  } catch {
+    return {
+      servicesCount: PRESET_SERVICES.length,
+      categoriesCount: BASE_CATEGORY_TABS.length - 1
+    };
+  }
+};
+
 interface AppHubProps {
   externalSearchQuery?: string;
+  userId?: string;
 }
 
-export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
+export default function AppHub({ externalSearchQuery, userId }: AppHubProps = {}) {
   const { t, isBn } = useLanguage();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -172,46 +213,87 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
       setSearchTerm(externalSearchQuery);
     }
   }, [externalSearchQuery]);
+
+  useEffect(() => {
+    const handleCategorySelect = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setSelectedCategory(customEvent.detail);
+        const el = document.getElementById('app-hub-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('hk_select_category', handleCategorySelect);
+    return () => window.removeEventListener('hk_select_category', handleCategorySelect);
+  }, []);
   
+  const storageKey = userId ? `hk_bookmarks_${userId}` : 'hk_bookmarks';
+
   const [customBookmarks, setCustomBookmarks] = useState<Bookmark[]>(() => {
-    const saved = localStorage.getItem('hk_bookmarks');
+    const saved = localStorage.getItem(storageKey);
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Real-time Firestore sync for bookmarks
+  useEffect(() => {
+    if (!userId) return;
+    const unsubscribe = subscribeUserBookmarks(userId, (remoteBookmarks) => {
+      if (remoteBookmarks && remoteBookmarks.length >= 0) {
+        setCustomBookmarks(remoteBookmarks);
+        localStorage.setItem(storageKey, JSON.stringify(remoteBookmarks));
+        window.dispatchEvent(new CustomEvent('hk_bookmarks_updated'));
+      }
+    });
+    return () => unsubscribe();
+  }, [userId, storageKey]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newIcon, setNewIcon] = useState('');
   const [newCategory, setNewCategory] = useState('চাকরি ও আবেদন');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
-  const [deleteMode, setDeleteMode] = useState(false);
+  const [iconFitMode, setIconFitMode] = useState<'cover' | 'contain'>('cover');
+  const [isWrapCategories, setIsWrapCategories] = useState(false);
+  const categoryContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    localStorage.setItem('hk_bookmarks', JSON.stringify(customBookmarks));
-    window.dispatchEvent(new CustomEvent('hk_bookmarks_updated'));
-  }, [customBookmarks]);
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -240 : 240;
+      categoryContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
+  // Persist custom bookmarks and notify other components (e.g., StartNavbar)
   useEffect(() => {
-    const syncFromStorage = () => {
-      try {
-        const saved = localStorage.getItem('hk_bookmarks');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (JSON.stringify(parsed) !== JSON.stringify(customBookmarks)) {
-            setCustomBookmarks(parsed);
-          }
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(customBookmarks));
+      window.dispatchEvent(new CustomEvent('hk_bookmarks_updated'));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [customBookmarks, storageKey]);
+
+  // Sync with changes from other browser tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === storageKey && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setCustomBookmarks((prev) =>
+            JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev
+          );
+        } catch (err) {
+          console.error(err);
         }
-      } catch (e) {
-        console.error(e);
       }
     };
-    window.addEventListener('storage', syncFromStorage);
-    window.addEventListener('hk_bookmarks_updated', syncFromStorage);
+    window.addEventListener('storage', handleStorageChange);
     return () => {
-      window.removeEventListener('storage', syncFromStorage);
-      window.removeEventListener('hk_bookmarks_updated', syncFromStorage);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [storageKey]);
 
   const getNormalizedUrl = (url?: string) => {
     if (!url) return '#';
@@ -234,7 +316,33 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
     }
   };
 
-  const handleAddBookmark = (e: React.FormEvent) => {
+  const handleOpenAddModal = () => {
+    setEditingBookmarkId(null);
+    setNewTitle('');
+    setNewUrl('');
+    setNewIcon('');
+    setNewCategory('চাকরি ও আবেদন');
+    setCustomCategoryInput('');
+    setIconFitMode('cover');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (book: Bookmark) => {
+    setEditingBookmarkId(book.id);
+    setNewTitle(book.title);
+    setNewUrl(book.url);
+    setNewIcon(book.icon || '');
+    if (['চাকরি ও আবেদন', 'ছবি ও স্টুডিও', 'প্রিন্ট ও ডকুমেন্ট', 'হিসাব-নিকাশ', 'যোগাযোগ', 'মার্কেটিং', 'শিক্ষা', 'ব্যক্তিগত'].includes(book.category)) {
+      setNewCategory(book.category);
+      setCustomCategoryInput('');
+    } else {
+      setNewCategory('custom');
+      setCustomCategoryInput(book.category);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSaveBookmark = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newUrl.trim()) return;
 
@@ -245,22 +353,58 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
 
     const finalCategory = newCategory === 'custom' ? (customCategoryInput.trim() || 'অন্যান্য') : newCategory;
 
-    const newBookmark: Bookmark = {
-      id: Date.now().toString(),
-      title: newTitle.trim(),
-      url: formattedUrl,
-      category: finalCategory,
-      icon: newIcon.trim() || undefined,
-    };
+    if (editingBookmarkId) {
+      const updatedList = customBookmarks.map((b) =>
+        b.id === editingBookmarkId
+          ? {
+              ...b,
+              title: newTitle.trim(),
+              url: formattedUrl,
+              category: finalCategory,
+              icon: newIcon.trim() || undefined,
+            }
+          : b
+      );
+      setCustomBookmarks(updatedList);
+      if (userId) {
+        saveUserBookmarkToFirestore(userId, {
+          id: editingBookmarkId,
+          title: newTitle.trim(),
+          url: formattedUrl,
+          category: finalCategory,
+          icon: newIcon.trim() || undefined,
+        });
+      }
+      dispatchAppNotification({
+        titleBn: '✏️ অ্যাপ বুকমার্ক আপডেট হয়েছে',
+        titleEn: '✏️ App Bookmark Updated',
+        messageBn: `অ্যাপ: "${newTitle.trim()}"`,
+        messageEn: `App: "${newTitle.trim()}"`,
+        type: 'info'
+      });
+    } else {
+      const newBookmark: Bookmark = {
+        id: Date.now().toString(),
+        title: newTitle.trim(),
+        url: formattedUrl,
+        category: finalCategory,
+        icon: newIcon.trim() || undefined,
+      };
 
-    setCustomBookmarks((prev) => [...prev, newBookmark]);
-    dispatchAppNotification({
-      titleBn: '📌 নতুন অ্যাপ বুকমার্ক যুক্ত হয়েছে',
-      titleEn: '📌 New App Bookmark Added',
-      messageBn: `অ্যাপ: "${newTitle.trim()}"`,
-      messageEn: `App: "${newTitle.trim()}"`,
-      type: 'info'
-    });
+      setCustomBookmarks((prev) => [...prev, newBookmark]);
+      if (userId) {
+        saveUserBookmarkToFirestore(userId, newBookmark);
+      }
+      dispatchAppNotification({
+        titleBn: '📌 নতুন অ্যাপ বুকমার্ক যুক্ত হয়েছে',
+        titleEn: '📌 New App Bookmark Added',
+        messageBn: `অ্যাপ: "${newTitle.trim()}"`,
+        messageEn: `App: "${newTitle.trim()}"`,
+        type: 'info'
+      });
+    }
+
+    setEditingBookmarkId(null);
     setNewTitle('');
     setNewUrl('');
     setNewIcon('');
@@ -272,6 +416,9 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
   const handleDeleteBookmark = (id: string) => {
     const target = customBookmarks.find(b => b.id === id);
     if (target) {
+      if (userId) {
+        deleteUserBookmarkFromFirestore(userId, id);
+      }
       dispatchAppNotification({
         titleBn: '🗑️ বুকমার্ক মুছে ফেলা হয়েছে',
         titleEn: '🗑️ Bookmark Removed',
@@ -283,26 +430,13 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
     setCustomBookmarks((prev) => prev.filter((b) => b.id !== id));
   };
 
-  // Build dynamic category list by merging presets and custom bookmark categories
-  const baseCategoryTabs = [
-    { id: 'all', labelBn: 'সব সেবা ও টুলস', labelEn: 'All Services & Tools' },
-    { id: 'চাকরি ও আবেদন', labelBn: 'সরকারি-বেসরকারি চাকরি', labelEn: 'Jobs & Applications' },
-    { id: 'ছবি ও স্টুডিও', labelBn: 'ছবি ও ফটো স্টুডিও', labelEn: 'Photo & Studio' },
-    { id: 'প্রিন্ট ও ডকুমেন্ট', labelBn: 'সিভি ও প্রিন্টিং সেবা', labelEn: 'Print & Documents' },
-    { id: 'হিসাব-নিকাশ', labelBn: 'আইটি ও হিসাব-নিকাশ', labelEn: 'IT & Calculations' },
-    { id: 'যোগাযোগ', labelBn: 'মেসেজিং ও সোশ্যাল', labelEn: 'Messaging & Social' },
-    { id: 'মার্কেটিং', labelBn: 'মার্কেটিং ও বিজ্ঞাপন', labelEn: 'Marketing & Ads' },
-    { id: 'শিক্ষা', labelBn: 'শিক্ষা ও ক্যারিয়ার', labelEn: 'Education & Career' },
-    { id: 'ব্যক্তিগত', labelBn: 'ব্যক্তিগত বুকমার্কস', labelEn: 'Personal Bookmarks' },
-  ];
-
   // Extract any unique extra categories from custom bookmarks
   const extraCategories = Array.from(
-    new Set(customBookmarks.map(b => b.category).filter(cat => cat && !baseCategoryTabs.some(t => t.id === cat)))
+    new Set(customBookmarks.map(b => b.category).filter(cat => cat && !BASE_CATEGORY_TABS.some(t => t.id === cat)))
   );
 
   const CATEGORY_TABS = [
-    ...baseCategoryTabs,
+    ...BASE_CATEGORY_TABS,
     ...extraCategories.map(cat => ({ id: cat, labelBn: cat, labelEn: cat }))
   ];
 
@@ -464,7 +598,7 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
             </div>
 
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenAddModal}
               className="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -473,21 +607,67 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
           </div>
         </div>
 
-        {/* Pill category selection tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {CATEGORY_TABS.map((tab) => (
+        {/* Pill category selection tabs with Left/Right Arrows and Expand/Wrap toggle */}
+        <div className="relative flex items-center gap-1.5 w-full">
+          {/* Scroll Left Button */}
+          {!isWrapCategories && (
             <button
-              key={tab.id}
-              onClick={() => setSelectedCategory(tab.id)}
-              className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all border whitespace-nowrap cursor-pointer ${
-                selectedCategory === tab.id
-                  ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/20 scale-105'
-                  : 'bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/5 hover:bg-slate-200/80 dark:hover:bg-slate-700'
-              }`}
+              onClick={() => scrollCategories('left')}
+              className="p-1.5 text-slate-500 hover:text-sky-500 dark:text-slate-400 dark:hover:text-sky-400 bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-white/10 transition-all shadow-xs shrink-0 cursor-pointer hidden sm:flex items-center justify-center"
+              title={t('বামে স্ক্রোল করুন', 'Scroll Left')}
             >
-              {t(tab.labelBn, tab.labelEn)}
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          ))}
+          )}
+
+          {/* Category Tabs Container */}
+          <div
+            ref={categoryContainerRef}
+            className={`flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth custom-scrollbar flex-1 transition-all ${
+              isWrapCategories ? 'flex-wrap overflow-x-visible' : 'overflow-x-auto scrollbar-none'
+            }`}
+          >
+            {CATEGORY_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all border whitespace-nowrap cursor-pointer shrink-0 ${
+                  selectedCategory === tab.id
+                    ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/20 scale-105 font-extrabold'
+                    : 'bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/5 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                }`}
+              >
+                {t(tab.labelBn, tab.labelEn)}
+              </button>
+            ))}
+          </div>
+
+          {/* Scroll Right Button */}
+          {!isWrapCategories && (
+            <button
+              onClick={() => scrollCategories('right')}
+              className="p-1.5 text-slate-500 hover:text-sky-500 dark:text-slate-400 dark:hover:text-sky-400 bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-white/10 transition-all shadow-xs shrink-0 cursor-pointer hidden sm:flex items-center justify-center"
+              title={t('ডানে স্ক্রোল করুন', 'Scroll Right')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Toggle All Categories Multi-line / Wrap View */}
+          <button
+            onClick={() => setIsWrapCategories((prev) => !prev)}
+            className={`p-1.5 text-xs rounded-xl border transition-all shrink-0 cursor-pointer flex items-center gap-1 font-bold ${
+              isWrapCategories
+                ? 'bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+            title={isWrapCategories ? t('এক সারিতে দেখুন', 'Show Single Row') : t('সব ক্যাটাগরি এক সাথে দেখুন', 'Show All Categories (Wrap)')}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="hidden md:inline text-[11px]">
+              {isWrapCategories ? t('সংক্ষিপ্ত', 'Compact') : t('সবগুলো', 'All View')}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -514,13 +694,13 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
               }
             }}
-            className="group relative flex flex-col items-center justify-between p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 dark:hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[135px]"
+            className="group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 dark:hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[140px]"
           >
             {/* Top window card frame with 3 dots like user's screenshot */}
-            <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl p-2 flex flex-col items-center justify-center h-20 relative overflow-hidden group-hover:border-sky-500/30 transition-colors">
+            <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl p-2 flex flex-col items-center justify-center h-24 relative overflow-hidden group-hover:border-sky-500/30 transition-colors">
               
               {/* Top window controls (Red, Yellow, Green dots) */}
-              <div className="absolute top-1.5 right-2 flex items-center gap-1">
+              <div className="absolute top-1.5 right-2 flex items-center gap-1 z-10 bg-black/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full border border-white/5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
@@ -542,19 +722,35 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
           </a>
         ))}
 
-        {/* User Added Custom Bookmarks (Rendered in same card style) */}
+        {/* User Added Custom Bookmarks (Rendered in same card style with FULL SPACE logo image) */}
         {filteredCustomBookmarks.map((book) => (
           <div
             key={book.id}
-            className="group relative flex flex-col items-center justify-between p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[135px]"
+            className="group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-850 hover:border-sky-500/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden min-h-[140px]"
           >
-            <button
-              onClick={() => handleDeleteBookmark(book.id)}
-              className="absolute top-1.5 right-1.5 z-10 p-1 text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              title={t('মুছুন', 'Delete')}
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            {/* Quick Actions (Edit & Delete) */}
+            <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenEditModal(book);
+                }}
+                className="p-1 text-slate-300 hover:text-sky-400 bg-slate-900/80 backdrop-blur-sm rounded-full border border-white/10 hover:border-sky-500/50 transition-all cursor-pointer"
+                title={t('এডিট', 'Edit')}
+              >
+                <Edit2 className="w-2.5 h-2.5" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteBookmark(book.id);
+                }}
+                className="p-1 text-slate-300 hover:text-rose-500 bg-slate-900/80 backdrop-blur-sm rounded-full border border-white/10 hover:border-rose-500/50 transition-all cursor-pointer"
+                title={t('মুছুন', 'Delete')}
+              >
+                <Trash2 className="w-2.5 h-2.5" />
+              </button>
+            </div>
 
             <a
               href={getNormalizedUrl(book.url)}
@@ -577,28 +773,34 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
               }}
               className="w-full h-full flex flex-col items-center justify-between"
             >
-              <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl p-2 flex flex-col items-center justify-center h-20 relative overflow-hidden">
-                {/* Window control dots */}
-                <div className="absolute top-1.5 right-2 flex items-center gap-1">
+              {/* Top window card frame with FULL SPACE logo image */}
+              <div className="w-full bg-slate-200/60 dark:bg-slate-950/80 border border-slate-300/40 dark:border-white/5 rounded-xl flex flex-col items-center justify-center h-24 relative overflow-hidden group-hover:border-sky-500/30 transition-colors">
+                
+                {/* Window control dots in glass pill */}
+                <div className="absolute top-1.5 left-2 flex items-center gap-1 z-10 bg-black/50 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/10 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
                 </div>
 
                 {book.icon ? (
-                  <img
-                    src={book.icon}
-                    alt={book.title}
-                    referrerPolicy="no-referrer"
-                    className="w-9 h-9 object-contain rounded-lg shadow-sm max-h-12"
-                  />
+                  <div className="w-full h-full relative overflow-hidden rounded-xl bg-slate-950">
+                    <img
+                      src={book.icon}
+                      alt={book.title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 ) : (
-                  <div className="w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 font-extrabold text-sm uppercase">
-                    {book.title.charAt(0)}
+                  <div className="w-full h-full rounded-xl bg-gradient-to-br from-sky-500/20 via-sky-600/10 to-indigo-500/20 border border-sky-400/20 flex flex-col items-center justify-center text-sky-400 font-extrabold text-lg uppercase shadow-inner">
+                    <span className="text-xl font-black">{book.title.charAt(0)}</span>
                   </div>
                 )}
               </div>
 
+              {/* Bottom Title Label */}
               <div className="mt-2 text-center w-full px-1">
                 <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-sky-400 transition-colors truncate">
                   {book.title}
@@ -612,29 +814,32 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
         ))}
       </div>
 
-      {/* Custom Add Bookmark Modal */}
+      {/* Custom Add/Edit Bookmark Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-2xl max-w-sm w-full animate-scaleIn">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-2xl max-w-md w-full my-auto max-h-[92vh] flex flex-col animate-scaleIn">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-white/5 shrink-0">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Link className="w-4 h-4 text-sky-500" />
-                {t('নতুন অ্যাপ বা সার্ভিস লিংক যুক্ত করুন', 'Add New App or Service Link')}
+                {editingBookmarkId 
+                  ? t('অ্যাপ বা সার্ভিস লিংক এডিট করুন', 'Edit App or Service Link') 
+                  : t('নতুন অ্যাপ বা সার্ভিস লিংক যুক্ত করুন', 'Add New App or Service Link')}
               </h4>
               <button
                 onClick={() => {
                   setIsModalOpen(false);
+                  setEditingBookmarkId(null);
                   setNewIcon('');
                 }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddBookmark} className="space-y-3">
+            <form onSubmit={handleSaveBookmark} className="space-y-3.5 pt-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">
                   {t('ক্যাটাগরি নির্বাচন করুন', 'Select Category')}
                 </label>
                 <select
@@ -656,7 +861,7 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
 
               {newCategory === 'custom' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-sky-500 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-500 mb-1 uppercase tracking-wider">
                     {t('নতুন ক্যাটাগরির নাম লিখুন', 'Custom Category Name')}
                   </label>
                   <input
@@ -671,7 +876,7 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
               )}
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">
                   {t('অ্যাপ বা সার্ভিসের নাম (Title)', 'App or Service Name')}
                 </label>
                 <input
@@ -685,7 +890,7 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">
                   {t('ইউআরএল (Web URL)', 'Web URL')}
                 </label>
                 <input
@@ -698,17 +903,17 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
                 />
               </div>
 
-              {/* App Image / Logo Upload Section */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
-                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-between">
+              {/* App Image / Logo Upload Section with Full-Space Card Preview */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-white/10 space-y-2.5">
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-between uppercase tracking-wider">
                   <span className="flex items-center gap-1">
-                    <ImageIcon className="w-3 h-3 text-sky-500" /> {t('অ্যাপ আইকন / ছবি (ঐচ্ছিক)', 'App Icon / Image (Optional)')}
+                    <ImageIcon className="w-3 h-3 text-sky-500" /> {t('অ্যাপ লোগো / কার্ড ইমেজ (সম্পূর্ণ স্পেস)', 'App Logo / Card Image (Full Space)')}
                   </span>
                   {newIcon && (
                     <button
                       type="button"
                       onClick={() => setNewIcon('')}
-                      className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                      className="text-[9px] text-rose-500 hover:underline cursor-pointer normal-case"
                     >
                       {t('ছবি রিমুভ', 'Remove Image')}
                     </button>
@@ -716,23 +921,36 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
                 </label>
 
                 {newIcon ? (
-                  <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-white/10">
-                    <img
-                      src={newIcon}
-                      alt="Preview"
-                      referrerPolicy="no-referrer"
-                      className="w-10 h-10 object-contain rounded-lg border border-slate-200 dark:border-white/10 shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-emerald-500 font-bold truncate">✓ {t('ইমেজ সিলেক্ট করা হয়েছে', 'Image selected')}</p>
-                      <p className="text-[9px] text-slate-400 truncate font-mono">Image attached</p>
+                  <div className="space-y-2">
+                    {/* Live Card Full Space Preview Box */}
+                    <div className="relative w-full h-24 rounded-xl border border-sky-500/40 bg-slate-950 overflow-hidden shadow-inner flex items-center justify-center">
+                      <img
+                        src={newIcon}
+                        alt="Full Card Preview"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Window dots indicator */}
+                      <div className="absolute top-1.5 left-2 flex items-center gap-1 z-10 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/10 shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                      </div>
+                      <div className="absolute bottom-1 right-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded text-[9px] text-emerald-400 font-bold font-mono">
+                        {t('কার্ডে ফুল স্পেস কভার', 'Full Space Cover')}
+                      </div>
                     </div>
+
+                    <p className="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                      <span>{t('লোগোটি কার্ডের পুরো জায়গা জুড়ে নিখুঁতভাবে দেখাবে', 'Logo will display across the full card space seamlessly')}</span>
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <label className="flex items-center justify-center gap-1.5 p-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10 hover:border-sky-500 dark:hover:border-sky-500 cursor-pointer bg-white dark:bg-slate-900 transition-colors text-xs text-slate-600 dark:text-slate-300">
-                      <Upload className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{t('ডিভাইস থেকে ফটো আপলোড করুন', 'Upload photo from device')}</span>
+                    <label className="flex items-center justify-center gap-1.5 p-3 rounded-xl border border-dashed border-slate-300 dark:border-white/10 hover:border-sky-500 dark:hover:border-sky-500 cursor-pointer bg-white dark:bg-slate-900 transition-colors text-xs text-slate-600 dark:text-slate-300">
+                      <Upload className="w-4 h-4 text-sky-500" />
+                      <span className="font-semibold">{t('ডিভাইস থেকে ফটো / লোগো আপলোড করুন', 'Upload photo / logo from device')}</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -743,7 +961,7 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
 
                     <input
                       type="url"
-                      placeholder={t('অথবা ইমেজ URL পেস্ট করুন...', 'Or paste image URL...')}
+                      placeholder={t('অথবা ইমেজ / লোগো URL পেস্ট করুন...', 'Or paste image / logo URL...')}
                       value={newIcon}
                       onChange={(e) => setNewIcon(e.target.value)}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -752,22 +970,25 @@ export default function AppHub({ externalSearchQuery }: AppHubProps = {}) {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Bottom Actions - Always visible and pinned at bottom */}
+              <div className="flex justify-end items-center gap-2.5 pt-3 border-t border-slate-100 dark:border-white/5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setIsModalOpen(false);
+                    setEditingBookmarkId(null);
                     setNewIcon('');
                   }}
-                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer"
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer font-semibold"
                 >
                   {t('বাতিল', 'Cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer shadow-sm font-bold"
+                  className="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-md hover:shadow-sky-500/25 font-bold flex items-center gap-1.5"
                 >
-                  {t('সংরক্ষণ করুন', 'Save Link')}
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{editingBookmarkId ? t('আপডেট করুন', 'Update Link') : t('সংরক্ষণ করুন', 'Save Link')}</span>
                 </button>
               </div>
             </form>

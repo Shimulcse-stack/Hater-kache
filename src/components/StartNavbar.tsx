@@ -227,6 +227,7 @@ export default function StartNavbar({
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [customBookmarks, setCustomBookmarks] = useState<Bookmark[]>([]);
 
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
@@ -412,10 +413,10 @@ export default function StartNavbar({
   };
 
   const pages = [
-    { id: 'start', nameBn: 'স্টার্ট পেজ (Home)', nameEn: 'Start Page', icon: <Home className="w-4 h-4 text-sky-400" /> },
-    { id: 'apps', nameBn: 'অ্যাপ হাব ও সার্ভিসেস', nameEn: 'App Hub & Portal', icon: <AppWindow className="w-4 h-4 text-emerald-400" /> },
-    { id: 'builder', nameBn: 'এআই কোড বিল্ডার', nameEn: 'AI Web Sandbox', icon: <Code2 className="w-4 h-4 text-purple-400" /> },
-    { id: 'focus', nameBn: 'প্রোডাক্টিভিটি স্টেশন', nameEn: 'Focus Station', icon: <Zap className="w-4 h-4 text-amber-400" /> },
+    { id: 'start', nameBn: 'হোম পেজ (Home)', nameEn: 'Home Page', icon: <Home className="w-4 h-4 text-sky-400" /> },
+    { id: 'apps', nameBn: 'সার্ভিসেস ও বুকমার্কস', nameEn: 'Services & Bookmarks', icon: <AppWindow className="w-4 h-4 text-emerald-400" /> },
+    { id: 'productivity', nameBn: 'টুলস ও প্রোডাক্টিভিটি', nameEn: 'Tools & Productivity', icon: <Zap className="w-4 h-4 text-amber-400" /> },
+    { id: 'webbuilder', nameBn: 'এআই কোড বিল্ডার', nameEn: 'AI Web Sandbox', icon: <Code2 className="w-4 h-4 text-purple-400" /> },
   ];
 
   const currentPageObj = pages.find(p => p.id === activePage) || pages[0];
@@ -427,34 +428,76 @@ export default function StartNavbar({
   };
 
   const handleSelectPage = (pageId: string) => {
-    setActivePage(pageId);
-    setShowPagesDropdown(false);
+    // Normalize aliases
+    let target = pageId;
+    if (pageId === 'home') target = 'start';
+    if (pageId === 'services') target = 'apps';
+    if (pageId === 'focus' || pageId === 'tools') target = 'productivity';
+    if (pageId === 'builder') target = 'webbuilder';
 
-    // Smooth scroll to section if matching ID exists
+    setActivePage(target);
+    setShowPagesDropdown(false);
+    setMobileMenuOpen(false);
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCategoryFilter = (catName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setShowCategoriesDropdown(false);
+    setActivePage('apps');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
-      if (pageId === 'apps') {
-        const el = document.getElementById('app-hub-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      } else if (pageId === 'builder') {
-        const el = document.getElementById('web-builder-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      } else if (pageId === 'focus') {
-        const el = document.getElementById('productivity-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      window.dispatchEvent(new CustomEvent('hk_select_category', { detail: catName }));
     }, 100);
+    dispatchAppNotification({
+      titleBn: `📁 ক্যাটাগরি ফিল্টার: ${catName}`,
+      titleEn: `📁 Filtered Category: ${catName}`,
+      messageBn: `অ্যাপ হাবে "${catName}" ক্যাটাগরির সেবাগুলো ফিল্টার করা হয়েছে।`,
+      messageEn: `Filtered services for "${catName}" category.`,
+      type: 'info'
+    });
+  };
+
+  const handleLinkItemClick = (item: { id: string; titleBn: string; titleEn: string; url?: string }, e: React.MouseEvent) => {
+    e.preventDefault();
+
+    dispatchAppNotification({
+      titleBn: `🌐 বুকমার্ক খোলা হয়েছে: ${item.titleBn}`,
+      titleEn: `🌐 Opened Link: ${item.titleEn}`,
+      messageBn: `আপনি "${item.titleBn}" ভিজিট করেছেন।`,
+      messageEn: `You opened "${item.titleEn}".`,
+      type: 'app'
+    });
+
+    setShowCategoriesDropdown(false);
+
+    const rawUrl = item.url || '#app-hub-section';
+    const isHash = rawUrl.startsWith('#');
+
+    if (isHash) {
+      if (rawUrl.includes('productivity') || rawUrl.includes('scratchpad') || rawUrl.includes('converter')) {
+        setActivePage('productivity');
+      } else if (rawUrl.includes('builder')) {
+        setActivePage('webbuilder');
+      } else {
+        setActivePage('apps');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const finalUrl = getNormalizedUrl(rawUrl);
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
     <>
-      {/* Bahon Theme Top Header Contact & Utility Bar */}
-      <div className="w-full bg-[#060d1a] border-b border-slate-800/80 text-slate-300 text-[11px] py-1.5 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2 z-50">
+      {/* Bahon Theme Top Header Contact & Utility Bar with Mobile Safe Area */}
+      <div className="w-full bg-[#060d1a] border-b border-slate-800/80 text-slate-300 text-[11px] pt-[max(env(safe-area-inset-top,0px),0.375rem)] pb-1.5 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2 z-50">
         <div className="flex items-center gap-4 text-slate-400">
           <span className="flex items-center gap-1.5 hover:text-orange-400 transition-colors cursor-pointer">
             <Phone className="w-3 h-3 text-[#ff5e14]" />
-            <span className="font-mono text-[11px]">+880 1700-000000</span>
+            <span className="font-mono text-[11px]">+880 1619-184281</span>
           </span>
           <span className="hidden sm:flex items-center gap-1.5 hover:text-orange-400 transition-colors cursor-pointer">
             <Mail className="w-3 h-3 text-[#ff5e14]" />
@@ -496,8 +539,10 @@ export default function StartNavbar({
           {/* Main Brand Logo */}
           <div 
             className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group shrink-0" 
-            onClick={() => handleSelectPage('start')}
-            title={t('হোম পেজে যান', 'Go to Home')}
+            onClick={() => {
+              handleSelectPage('start');
+            }}
+            title={t('হোমে ফিরে যান', 'Go to Home')}
           >
             <div className="h-8 sm:h-9 px-1.5 bg-white rounded-xl border border-orange-300/60 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
               <img 
@@ -509,7 +554,7 @@ export default function StartNavbar({
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-black text-xs sm:text-sm tracking-tight text-white flex items-center gap-1 font-sans truncate">
-                হাতের কাছে 
+                হাতের <span className="text-[#ff5e14]"> কাছে </span>
               </span>
               <span className="hidden xs:block text-[8px] sm:text-[9px] text-orange-400 font-mono tracking-wider -mt-0.5 truncate uppercase">
                 PORTAL
@@ -517,8 +562,8 @@ export default function StartNavbar({
             </div>
           </div>
 
-          {/* Nav items menu links (Desktop view - matching uploaded theme) */}
-          <div className="hidden lg:flex items-center gap-5 text-xs font-bold uppercase tracking-wider text-slate-300">
+          {/* Nav items menu links */}
+          <div className="hidden md:flex items-center gap-3 lg:gap-5 text-xs font-bold uppercase tracking-wider text-slate-300">
             <button 
               onClick={() => handleSelectPage('start')}
               className={`hover:text-[#ff5e14] transition-colors cursor-pointer py-1 ${activePage === 'start' ? 'text-[#ff5e14] border-b-2 border-[#ff5e14]' : ''}`}
@@ -544,158 +589,12 @@ export default function StartNavbar({
               {t('বিল্ডার', 'BUILDER')}
             </button>
           </div>
-
-          {/* Link Categories Dropdown Button (Desktop view) */}
-          <div className="relative shrink-0 hidden md:block" ref={categoriesDropdownRef}>
-            <button
-              onClick={() => setShowCategoriesDropdown(!showCategoriesDropdown)}
-              className="flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-700 text-orange-400 font-bold text-xs px-3 py-1.5 rounded-lg border border-orange-500/30 shadow-md transition-all cursor-pointer active:scale-95 shrink-0"
-            >
-              <FolderOpen className="w-3.5 h-3.5 text-[#ff5e14]" />
-              <span>{t('ক্যাটাগরি', 'CATEGORIES')}</span>
-              <ChevronDown className={`w-3 h-3 text-orange-400 transition-transform ${showCategoriesDropdown ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
         </div>
 
-        {/* Right Section: Controls, Hamburger Categories, Search, Bell, Profile */}
+        {/* Right Section: Controls, Hamburger Menu (Mobile/Tablet), Search, Bell, Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
-          {/* Categories Hamburger Menu Button (Mobile view as shown in user's screenshot) */}
-          <div className="relative shrink-0 md:hidden" ref={categoriesDropdownRef}>
-            <button
-              onClick={() => setShowCategoriesDropdown(!showCategoriesDropdown)}
-              className="p-2 sm:p-2 bg-slate-800/90 hover:bg-slate-700 text-sky-400 rounded-full border border-slate-700/80 shadow-md transition-all cursor-pointer active:scale-95 shrink-0 flex items-center justify-center"
-              title={t('ক্যাটাগরি ও মেনু', 'Categories & Menu')}
-            >
-              <Menu className="w-4 h-4 text-sky-400" />
-            </button>
-          </div>
 
-          {/* Categories Dropdown Menu (Opened by Desktop or Mobile button) */}
-          {showCategoriesDropdown && (
-            <div className="fixed sm:absolute top-14 sm:top-full left-2 right-2 sm:left-auto sm:right-16 md:left-36 md:right-auto mt-1 sm:mt-2 w-auto sm:w-80 bg-slate-900/98 border border-slate-700 text-white rounded-2xl shadow-2xl p-3 z-50 animate-scaleIn backdrop-blur-2xl max-h-[80vh] sm:max-h-[480px] overflow-y-auto max-w-[calc(100vw-1rem)]">
-              
-              {/* Main Pages Section Header */}
-              <div className="mb-2 pb-2 border-b border-slate-800">
-                <div className="px-1 text-[10px] uppercase font-extrabold text-slate-400 tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>{t('আপনার পেজ ও সেকশন', 'Pages & Sections')}</span>
-                  <Menu className="w-3.5 h-3.5 text-sky-400" />
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  {pages.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        handleSelectPage(p.id);
-                        setShowCategoriesDropdown(false);
-                      }}
-                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 hover:bg-sky-500/20 transition-colors ${
-                        activePage === p.id ? 'text-sky-400 font-bold bg-sky-500/15 border border-sky-500/30' : 'text-slate-200'
-                      }`}
-                    >
-                      {p.icon}
-                      <span className="truncate">{isBn ? p.nameBn : p.nameEn}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dropdown Header */}
-              <div className="px-1 py-1 border-b border-slate-800 flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-extrabold text-white">
-                    {t('লিংকের ক্যাটাগরি সমূহ', 'Link Categories')}
-                  </span>
-                </div>
-                <span className="text-[10px] bg-sky-500/20 text-sky-400 font-bold px-2 py-0.5 rounded-full border border-sky-500/30">
-                  {PRESET_SERVICES.length + customBookmarks.length} {t('টি লিংক', 'links')}
-                </span>
-              </div>
-
-              {/* Categories Accordion List */}
-              <div className="space-y-1.5">
-                {Object.entries(categoryGroups).map(([catName, servicesList]) => {
-                  const items = servicesList as { id: string; titleBn: string; titleEn: string; url?: string; isCustom?: boolean }[];
-                  const isExpanded = expandedCategory === catName || expandedCategory === null;
-                  const catIcon = CATEGORY_ICONS[catName] || <FolderOpen className="w-3.5 h-3.5 text-sky-400" />;
-                  const catNameEn = CATEGORY_NAMES_EN[catName] || catName;
-
-                  return (
-                    <div key={catName} className="border border-slate-800 rounded-xl overflow-hidden bg-slate-800/40">
-                      <button
-                        onClick={() => setExpandedCategory(expandedCategory === catName ? '' : catName)}
-                        className="w-full text-left px-3 py-2 text-xs font-bold flex items-center justify-between hover:bg-slate-800/80 transition-colors cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2 text-slate-200">
-                          {catIcon}
-                          <span>{isBn ? catName : catNameEn}</span>
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-slate-400 font-bold bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-700">
-                            {items.length}
-                          </span>
-                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        </div>
-                      </button>
-
-                      {/* Direct Links under this category */}
-                      {isExpanded && (
-                        <div className="px-2 pb-2 pt-0.5 space-y-1 bg-slate-900/80 border-t border-slate-800">
-                          {items.map(item => (
-                            <a
-                              key={item.id}
-                              href={getNormalizedUrl(item.url)}
-                              target={item.url?.startsWith('#') ? '_self' : '_blank'}
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                dispatchAppNotification({
-                                  titleBn: `🌐 বুকমার্ক খোলা হয়েছে: ${item.titleBn}`,
-                                  titleEn: `🌐 Opened Link: ${item.titleEn}`,
-                                  messageBn: `আপনি "${item.titleBn}" ভিজিট করেছেন।`,
-                                  messageEn: `You opened "${item.titleEn}".`,
-                                  type: 'app'
-                                });
-                                setShowCategoriesDropdown(false);
-                                const url = item.url || '';
-                                if (url.startsWith('#')) {
-                                  e.preventDefault();
-                                  const el = document.querySelector(url);
-                                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                                }
-                              }}
-                              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-sky-500/20 text-slate-300 hover:text-sky-300 transition-colors group cursor-pointer"
-                            >
-                              <span className="truncate font-medium group-hover:font-bold flex items-center gap-1.5">
-                                {item.isCustom && <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" title={t('কাস্টম লিংক', 'Custom Link')} />}
-                                {isBn ? item.titleBn : item.titleEn}
-                              </span>
-                              <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-sky-400 shrink-0 ml-1" />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Footer View All Link */}
-              <div className="pt-2.5 mt-2.5 border-t border-slate-800">
-                <button
-                  onClick={() => {
-                    setShowCategoriesDropdown(false);
-                    handleSelectPage('apps');
-                  }}
-                  className="w-full py-2 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
-                >
-                  <span>{t('অ্যাপ হাব-এ সবগুলো লিংক দেখুন', 'View All Links in App Hub')}</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Search Box (Desktop & Tablet) */}
           <div className="relative hidden md:block w-36 lg:w-64" ref={searchContainerRef}>
@@ -729,7 +628,7 @@ export default function StartNavbar({
 
             {/* Instant Live Search Results Popup Dropdown */}
             {isSearchFocused && searchQuery.trim().length > 0 && (
-              <div className="absolute top-full right-0 mt-2 w-80 bg-slate-900/95 border border-slate-700 text-white rounded-2xl shadow-2xl p-2 z-50 backdrop-blur-2xl animate-scaleIn max-h-80 overflow-y-auto">
+              <div className="absolute top-full right-0 mt-2 w-80 bg-slate-900/95 border border-slate-700 text-white rounded-2xl shadow-2xl p-2 z-[9999] pointer-events-auto backdrop-blur-2xl animate-scaleIn max-h-80 overflow-y-auto">
                 {/* Search on Google option */}
                 <a
                   href={`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`}
@@ -798,6 +697,15 @@ export default function StartNavbar({
             title={t('খুঁজুন', 'Search')}
           >
             <Search className="w-4 h-4 text-sky-400" />
+          </button>
+
+          {/* Mobile Hamburger Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden p-1.5 sm:p-2 bg-slate-800/90 hover:bg-slate-700 text-sky-400 rounded-xl border border-slate-700 transition-all cursor-pointer active:scale-95 flex items-center justify-center"
+            title={t('মেনু', 'Menu')}
+          >
+            <Menu className="w-4 h-4 text-sky-400" />
           </button>
 
 
@@ -1048,18 +956,7 @@ export default function StartNavbar({
             )}
           </div>
 
-          {/* Orange Action CTA Button (Matching Bahon Theme "BOOK ONLINE" button) */}
-          <button
-            onClick={() => {
-              handleSelectPage('apps');
-              const el = document.getElementById('app-hub-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="hidden sm:flex items-center gap-1.5 bg-[#ff5e14] hover:bg-[#ea4d05] text-white font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-lg shadow-lg shadow-orange-500/25 transition-all cursor-pointer active:scale-95 shrink-0"
-          >
-            <Crown className="w-3.5 h-3.5 text-yellow-300 animate-pulse" />
-            <span>{t('বুকমার্ক অ্যাপস', 'BOOK ONLINE')}</span>
-          </button>
+
         </div>
       </nav>
 
@@ -1276,6 +1173,159 @@ export default function StartNavbar({
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Slide-over Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm flex justify-end animate-fadeIn md:hidden">
+          <div className="w-80 max-w-[85vw] bg-slate-900 border-l border-slate-700 text-white h-full flex flex-col justify-between shadow-2xl animate-slideLeft overflow-y-auto">
+            
+            {/* Drawer Header with Mobile Top Safe-Area */}
+            <div className="pt-[max(env(safe-area-inset-top,0px),1rem)] p-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900/98 backdrop-blur z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 px-1.5 bg-white rounded-xl border border-orange-300/60 flex items-center justify-center shadow">
+                  <img src={logoImg} alt="Logo" className="h-full w-auto object-contain" />
+                </div>
+                <div>
+                  <h4 className="font-black text-xs text-white">হাতের কাছে</h4>
+                  <span className="text-[9px] text-orange-400 font-mono tracking-wider uppercase">PORTAL MENU</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body: Navigation & Categories */}
+            <div className="p-4 space-y-4">
+              {/* Main Pages Navigation */}
+              <div>
+                <div className="text-[10px] uppercase font-extrabold text-orange-400 tracking-wider mb-2">
+                  {t('মেনু নেভিগেশন', 'Navigation Menu')}
+                </div>
+                <div className="space-y-1.5">
+                  {pages.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        handleSelectPage(p.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 transition-all ${
+                        activePage === p.id 
+                          ? 'text-white bg-gradient-to-r from-orange-500 to-amber-600 shadow-lg' 
+                          : 'text-slate-200 bg-slate-800/50 hover:bg-slate-800 hover:text-orange-400'
+                      }`}
+                    >
+                      {p.icon}
+                      <span>{isBn ? p.nameBn : p.nameEn}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Categories & Bookmarks Accordions */}
+              <div>
+                <div className="text-[10px] uppercase font-extrabold text-sky-400 tracking-wider mb-2 flex items-center justify-between">
+                  <span>{t('ক্যাটাগরি ও সার্ভিসেস', 'Categories & Services')}</span>
+                  <span className="bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded text-[9px]">
+                    {PRESET_SERVICES.length + customBookmarks.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(categoryGroups).map(([catName, servicesList]) => {
+                    const items = servicesList as { id: string; titleBn: string; titleEn: string; url?: string; isCustom?: boolean }[];
+                    const isExpanded = expandedCategory === catName;
+                    const catIcon = CATEGORY_ICONS[catName] || <FolderOpen className="w-3.5 h-3.5 text-sky-400" />;
+                    const catNameEn = CATEGORY_NAMES_EN[catName] || catName;
+
+                    return (
+                      <div key={catName} className="border border-slate-800 rounded-xl overflow-hidden bg-slate-800/30">
+                        <div className="w-full px-3 py-2 text-xs font-bold flex items-center justify-between bg-slate-800/60">
+                          <button
+                            onClick={(e) => {
+                              handleCategoryFilter(catName, e);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="flex items-center gap-2 text-slate-200 hover:text-orange-400 transition-colors text-left"
+                          >
+                            {catIcon}
+                            <span className="font-extrabold">{isBn ? catName : catNameEn}</span>
+                          </button>
+                          <button
+                            onClick={() => setExpandedCategory(isExpanded ? null : catName)}
+                            className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-900 px-2 py-1 rounded-md border border-slate-700 hover:text-white"
+                          >
+                            <span>{items.length}</span>
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="p-2 space-y-1 bg-slate-950/80 border-t border-slate-800">
+                            {items.map(item => (
+                              <a
+                                key={item.id}
+                                href={getNormalizedUrl(item.url)}
+                                target={item.url?.startsWith('#') ? '_self' : '_blank'}
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                  handleLinkItemClick(item, e);
+                                  setMobileMenuOpen(false);
+                                }}
+                                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-sky-500/20 text-slate-300 hover:text-sky-300 transition-colors group"
+                              >
+                                <span className="truncate font-medium flex items-center gap-1.5">
+                                  {item.isCustom && <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />}
+                                  {isBn ? item.titleBn : item.titleEn}
+                                </span>
+                                <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-sky-400 shrink-0 ml-1" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer Footer Utilities with Safe Area */}
+            <div className="p-4 pb-[max(env(safe-area-inset-bottom,0px),1.25rem)] border-t border-slate-800 bg-slate-950/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setLanguage(isBn ? 'en' : 'bn')}
+                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-orange-400 font-bold text-xs px-3 py-2 rounded-xl border border-orange-500/30"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'English (EN)' : 'বাংলা (BN)'}</span>
+                </button>
+                <span className="text-xs text-slate-400 font-mono">BDT (৳)</span>
+              </div>
+              {currentUser ? (
+                <button
+                  onClick={() => {
+                    onLogout?.();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{t('লগআউট', 'Sign Out')}</span>
+                </button>
+              ) : (
+                <div className="text-center text-xs text-slate-400">
+                  {t('লগইন করা নেই', 'Not logged in')}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

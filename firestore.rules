@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- AUTHENTICATION & IDENTITY HELPERS ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(docId) {
+      return docId is string && docId.size() > 0 && docId.size() <= 128 && docId.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- ENTITY VALIDATION HELPERS ---
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.email is string && data.email.size() > 3 && data.email.size() <= 120 &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+             (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500)) &&
+             (!('isPro' in data) || data.isPro is bool);
+    }
+
+    function isValidUserTask(data, userId) {
+      return data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 500 &&
+             data.completed is bool &&
+             data.priority in ['low', 'medium', 'high'] &&
+             data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidUserBookmark(data, userId) {
+      return data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.url is string && data.url.size() > 0 && data.url.size() <= 500 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 80 &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 500)) &&
+             data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidUserScratchpad(data, userId) {
+      return data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.content is string && data.content.size() <= 50000 &&
+             data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    function isValidUserSettings(data, userId) {
+      return data.userId == userId &&
+             data.userId == request.auth.uid &&
+             (!('theme' in data) || data.theme in ['dark', 'light']) &&
+             (!('bgType' in data) || data.bgType in ['nature', 'none', 'custom']) &&
+             (!('customBgUrl' in data) || (data.customBgUrl is string && data.customBgUrl.size() <= 500)) &&
+             (!('bgDimming' in data) || (data.bgDimming is number && data.bgDimming >= 0 && data.bgDimming <= 100)) &&
+             data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // --- SECURE PER-USER COLLECTION RULES ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; // Users cannot list other user profiles
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(request.resource.data, userId);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(request.resource.data, userId);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // 1. User Tasks Subcollection
+      match /tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(taskId) && isValidUserTask(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(taskId) && isValidUserTask(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(taskId);
+      }
+
+      // 2. User Custom Bookmarks Subcollection
+      match /bookmarks/{bookmarkId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId) && isValidUserBookmark(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId) && isValidUserBookmark(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId);
+      }
+
+      // 3. User Scratchpad Memo Subcollection
+      match /scratchpad/{scratchId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(scratchId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(scratchId) && isValidUserScratchpad(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(scratchId) && isValidUserScratchpad(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(scratchId);
+      }
+
+      // 4. User Settings & Wallpapers Subcollection
+      match /settings/{settingsId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(settingsId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(settingsId) && isValidUserSettings(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(settingsId) && isValidUserSettings(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(settingsId);
+      }
+    }
+
+    // Default block any unmapped top-level access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

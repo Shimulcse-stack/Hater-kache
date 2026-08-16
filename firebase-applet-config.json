@@ -3,6 +3,7 @@
   "appId": "1:941392839657:web:e9d56c7b14c71fe8970178",
   "apiKey": "AIzaSyA1XZjbzrvAYeJyknL_3832xiiriOTc2tk",
   "authDomain": "articulate-script-b7krv.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-haterkache-ad94f6ea-0b3f-446e-9b8c-405525e6a451",
   "storageBucket": "articulate-script-b7krv.firebasestorage.app",
   "messagingSenderId": "941392839657",
   "measurementId": "",

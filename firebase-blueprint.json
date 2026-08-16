@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User personal profile details stored under private user document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID matching request.auth.uid" },
+        "name": { "type": "string", "description": "User full display name", "maxLength": 100 },
+        "email": { "type": "string", "description": "User email address", "maxLength": 120 },
+        "avatar": { "type": "string", "description": "User avatar image URL", "maxLength": 500 },
+        "isPro": { "type": "boolean", "description": "Whether user has pro tier active" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp of last update" }
+      },
+      "required": ["userId", "email"]
+    },
+    "UserTask": {
+      "title": "UserTask",
+      "description": "Private to-do item owned by the authenticated user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique task ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "text": { "type": "string", "description": "Task description content", "maxLength": 500 },
+        "completed": { "type": "boolean", "description": "Task completion state" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"], "description": "Priority tier" },
+        "createdAt": { "type": "string", "description": "ISO timestamp created" }
+      },
+      "required": ["id", "userId", "text", "completed", "priority", "createdAt"]
+    },
+    "UserBookmark": {
+      "title": "UserBookmark",
+      "description": "Custom bookmark link added by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique bookmark ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "title": { "type": "string", "description": "Bookmark title", "maxLength": 150 },
+        "url": { "type": "string", "description": "Destination Web URL", "maxLength": 500 },
+        "category": { "type": "string", "description": "Category name", "maxLength": 80 },
+        "icon": { "type": "string", "description": "Optional icon or image URL", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "ISO timestamp created" }
+      },
+      "required": ["id", "userId", "title", "url", "category", "createdAt"]
+    },
+    "UserScratchpad": {
+      "title": "UserScratchpad",
+      "description": "User private scratchpad memo document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "content": { "type": "string", "description": "Raw note text content", "maxLength": 50000 },
+        "updatedAt": { "type": "string", "description": "ISO timestamp updated" }
+      },
+      "required": ["userId", "content", "updatedAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User private theme and wallpaper preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "theme": { "type": "string", "enum": ["dark", "light"], "description": "Theme choice" },
+        "bgType": { "type": "string", "enum": ["nature", "none", "custom"], "description": "Wallpaper mode" },
+        "customBgUrl": { "type": "string", "description": "Custom wallpaper image URL", "maxLength": 500 },
+        "bgDimming": { "type": "number", "description": "Wallpaper dimming percentage 0-100" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp updated" }
+      },
+      "required": ["userId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User private profile document strictly accessible by that user only"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "UserTask",
+      "description": "User private task subcollection strictly isolated to the owning userId"
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": "UserBookmark",
+      "description": "User custom bookmarks subcollection strictly isolated to the owning userId"
+    },
+    "/users/{userId}/scratchpad/{scratchId}": {
+      "schema": "UserScratchpad",
+      "description": "User private scratchpad notes strictly isolated to the owning userId"
+    },
+    "/users/{userId}/settings/{settingsId}": {
+      "schema": "UserSettings",
+      "description": "User private settings and custom wallpapers strictly isolated to the owning userId"
+    }
+  }
+}

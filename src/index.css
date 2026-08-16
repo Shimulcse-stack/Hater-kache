@@ -19,6 +19,26 @@
 body {
   font-family: var(--font-sans);
   transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+/* Safe area padding utilities for mobile & Android WebView notch/navigation bars */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+}
+
+.pb-mobile-nav {
+  padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 0px) + 5rem);
+}
+
+.min-h-screen-safe {
+  min-height: 100dvh;
 }
 
 /* Custom glassmorphism variables */

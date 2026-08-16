@@ -11,11 +11,17 @@ import {
   ShieldCheck,
   Lock,
   Mail,
-  Plus
+  Plus,
+  CheckCircle2
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { UserProfile } from '../types';
-import { signInWithGoogleReal } from '../lib/firebase';
+import { 
+  signInWithGoogleReal, 
+  signInWithEmailReal, 
+  signUpWithEmailReal 
+} from '../lib/firebase';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -33,12 +39,21 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successUser, setSuccessUser] = useState<UserProfile | null>(null);
 
   // OAuth Modal states
   const [activeOAuth, setActiveOAuth] = useState<'Google' | 'Apple' | 'GitHub' | null>(null);
   const [customGoogleEmail, setCustomGoogleEmail] = useState('');
   const [customGoogleName, setCustomGoogleName] = useState('');
   const [showAddGoogleAccount, setShowAddGoogleAccount] = useState(false);
+
+  // Trigger success animation then callback
+  const triggerSuccessLogin = (user: UserProfile) => {
+    setSuccessUser(user);
+    setTimeout(() => {
+      onLoginSuccess(user);
+    }, 1300);
+  };
 
   // Real Google Sign-In Handler
   const handleRealGoogleLogin = async () => {
@@ -47,7 +62,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       const googleUser = await signInWithGoogleReal();
       setIsGoogleLoading(false);
-      onLoginSuccess(googleUser);
+      triggerSuccessLogin(googleUser);
     } catch (err: any) {
       console.error("Google Sign-In error:", err);
       setIsGoogleLoading(false);
@@ -65,7 +80,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -81,17 +96,38 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      let user: UserProfile;
+      if (isSignUp) {
+        user = await signUpWithEmailReal(email.trim(), password, name.trim());
+      } else {
+        user = await signInWithEmailReal(email.trim(), password);
+      }
       setIsLoading(false);
-      const authenticatedUser: UserProfile = {
-        name: isSignUp ? name : (email.split('@')[0] || 'User'),
-        email: email,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        isPro: true
-      };
+      triggerSuccessLogin(user);
+    } catch (err: any) {
+      console.warn("Auth error:", err);
+      setIsLoading(false);
+      
+      const code = err?.code || '';
+      const message = err?.message || '';
 
-      onLoginSuccess(authenticatedUser);
-    }, 600);
+      if (code === 'auth/email-already-in-use') {
+        setErrorMsg(t('এই ইমেইল দিয়ে ইতোমধ্যে অ্যাকাউন্ট রয়েছে। অনুগ্রহ করে লগইন করুন।', 'This email is already in use. Please log in instead.'));
+      } else if (code === 'auth/invalid-email') {
+        setErrorMsg(t('সঠিক ইমেইল এড্রেস প্রদান করুন।', 'Please provide a valid email address.'));
+      } else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/user-not-found') {
+        setErrorMsg(t('ভুল ইমেইল বা পাসওয়ার্ড! আপনি নতুন হলে "SignUp" বাটনে ক্লিক করে আগে একাউন্ট খুলুন।', 'Invalid email or password! If you are new, click "SignUp" below to register.'));
+      } else if (code === 'auth/weak-password') {
+        setErrorMsg(t('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।', 'Password must be at least 6 characters long.'));
+      } else if (code === 'auth/too-many-requests') {
+        setErrorMsg(t('অতিরিক্ত ভুল চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে। কিছুক্ষণ পর চেষ্টা করুন।', 'Too many unsuccessful attempts. Please try again later.'));
+      } else if (code === 'auth/network-request-failed') {
+        setErrorMsg(t('নেটওয়ার্ক সংযোগ ত্রুটি। ইন্টারনেট কানেকশন চেক করুন।', 'Network error. Please check your internet connection.'));
+      } else {
+        setErrorMsg(message || t('অথেন্টিকেশন ব্যর্থ হয়েছে। অনুগ্রহ করে সঠিক তথ্য দিয়ে পুনরায় চেষ্টা করুন।', 'Authentication failed. Please verify your credentials and try again.'));
+      }
+    }
   };
 
   const handleOAuthSelectAccount = (selectedName: string, selectedEmail: string, selectedAvatar?: string) => {
@@ -100,14 +136,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     setTimeout(() => {
       setIsLoading(false);
+      const cleanUid = `oauth_${selectedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const user: UserProfile = {
+        uid: cleanUid,
         name: selectedName || 'Shimul Hossain',
         email: selectedEmail || 'shimul.cse28@gmail.com',
         avatar: selectedAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         isPro: true
       };
 
-      onLoginSuccess(user);
+      triggerSuccessLogin(user);
     }, 500);
   };
 
@@ -116,17 +154,75 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setTimeout(() => {
       setIsLoading(false);
       const demoUser: UserProfile = {
+        uid: 'demo_guest_user_shimul',
         name: 'Shimul Hossain',
         email: 'shimul.cse28@gmail.com',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         isPro: true
       };
-      onLoginSuccess(demoUser);
+      triggerSuccessLogin(demoUser);
     }, 500);
   };
 
   return (
     <div className="min-h-screen w-full bg-[#08080a] text-white flex items-center justify-center p-4 sm:p-8 relative overflow-hidden font-sans">
+      
+      {/* Login Success Celebration Overlay Animation */}
+      <AnimatePresence>
+        {successUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.5, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-orange-500/40 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+            >
+              {/* Background ambient glow */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/30 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.2, 1] }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="w-20 h-20 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-500/30 text-white relative"
+              >
+                <Check className="w-10 h-10 stroke-[3]" />
+                <motion.div
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0, 0.8] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="absolute inset-0 rounded-full border-2 border-emerald-400"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <span className="inline-block px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-extrabold rounded-full mb-2 border border-orange-500/30">
+                  {t('অভিনন্দন!', 'SUCCESSFUL!')}
+                </span>
+                <h3 className="text-xl font-black text-white mb-1">
+                  {isBn ? 'সফলভাবে লগইন হয়েছে!' : 'Login Successful!'}
+                </h3>
+                <p className="text-xs text-slate-300 font-medium mb-3">
+                  {isBn ? `স্বাগতম, ${successUser.name}!` : `Welcome back, ${successUser.name}!`}
+                </p>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-orange-400 font-mono">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{t('পোর্টালে প্রবেশ করা হচ্ছে...', 'Loading your workspace...')}</span>
+                </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Vibrant Warm Amber/Orange Lighting Beams in Background */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] sm:w-[900px] h-[700px] bg-gradient-to-br from-amber-500/30 via-orange-600/40 to-transparent blur-[130px] pointer-events-none rotate-12 transform-gpu" />
@@ -215,17 +311,49 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         <div className="lg:col-span-6 flex justify-center">
           <div className="w-full max-w-md bg-[#0d0d10]/90 border border-white/10 rounded-[32px] p-7 sm:p-9 shadow-2xl backdrop-blur-2xl relative">
             
+            {/* Tab Switcher */}
+            <div className="flex bg-white/5 p-1 rounded-2xl mb-6 border border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(false);
+                  setErrorMsg('');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  !isSignUp 
+                    ? 'bg-[#ff5a36] text-white shadow-md' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t('লগইন (Log In)', 'Log In')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(true);
+                  setErrorMsg('');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isSignUp 
+                    ? 'bg-[#ff5a36] text-white shadow-md' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t('রেজিস্ট্রেশন (Sign Up)', 'Sign Up')}
+              </button>
+            </div>
+
             {/* Header Title */}
             <div className="mb-6">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                 {isSignUp 
-                  ? t('একাউন্ট খুলুন!', 'Create account!') 
+                  ? t('নতুন একাউন্ট খুলুন!', 'Create an Account!') 
                   : t('Welcome back!', 'Welcome back!')}
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                 {isSignUp 
-                  ? t('আপনার পছন্দের লিংক ও টুলস এক জায়গায় গুছিয়ে রাখুন।', 'Get your tasks done efficiently with our powerful automation tools.') 
-                  : t('Get your tasks done efficiently with our powerful automation tools.', 'Get your tasks done efficiently with our powerful automation tools.')}
+                  ? t('আপনার নাম, ইমেইল এবং পাসওয়ার্ড দিয়ে নতুন অ্যাকাউন্ট খুলুন।', 'Sign up with your name, email and password to get started.') 
+                  : t('আপনার নিবন্ধিত ইমেইল ও পাসওয়ার্ড দিয়ে একাউন্টে প্রবেশ করুন।', 'Sign in with your registered email & password to access your space.')}
               </p>
             </div>
 

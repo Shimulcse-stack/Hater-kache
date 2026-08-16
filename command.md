@@ -92,7 +92,15 @@ npm start
 
 ## ⚠️ সম্ভাব্য সমস্যা ও সমাধান (Troubleshooting Tips)
 
-১. **Port 3000 is already in use (3000 পোর্ট অন্য কিছুতে ব্যবহার হচ্ছে):**
+১. **`Could not find a declaration file for module 'react'` বা লাল দাগ (TypeScript Red Lines):**
+   - এটি হওয়ার কারণ আপনার কম্পিউটারে প্রজেক্টের ডিপেনডেন্সি (প্যাকেজ) এখনও সম্পূর্ণ ইন্সটল করা হয়নি।
+   - VS Code টার্মিনালে সরাসরি এই কমান্ডটি চালান:
+     ```bash
+     npm install
+     ```
+   - ইন্সটল শেষ হলে VS Code টি একবার ক্লোজ করে আবার ওপেন করুন (অথবা `Ctrl + Shift + P` চেপে `TypeScript: Restart TS Server` এ চাপুন)। সব লাল দাগ এবং এরর চলে যাবে!
+
+২. **Port 3000 is already in use (3000 পোর্ট অন্য কিছুতে ব্যবহার হচ্ছে):**
    - কম্পিউটার রিস্টার্ট দিন অথবা পোর্ট ৩০০০ মুক্ত করে `npm run dev` পুনরায় দিন।
-২. **Node/npm Error:**
+৩. **Node/npm Error:**
    - টার্মিনালে `node -v` দিয়ে নিশ্চিত হন আপনার Node.js ভার্সন ১৮ বা তার চেয়ে বেশি।
