@@ -119,7 +119,7 @@ export const formatFirebaseUser = (user: FirebaseUser): UserProfile => {
     uid: user.uid,
     name: user.displayName || user.email?.split('@')[0] || 'User',
     email: user.email || '',
-    avatar: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=0D8ABC&color=fff`,
+    avatar: '',
     isPro: true
   };
 };
@@ -361,7 +361,7 @@ export const signUpWithEmailReal = async (email: string, password: string, displ
         uid: result.user.uid,
         name: cleanName,
         email: result.user.email || cleanEmail,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=0D8ABC&color=fff`,
+        avatar: '',
         isPro: true
       };
 
@@ -371,7 +371,7 @@ export const signUpWithEmailReal = async (email: string, password: string, displ
         email: cleanEmail,
         passwordHash: cleanPassword,
         name: cleanName,
-        avatar: userProfile.avatar,
+        avatar: '',
         createdAt: new Date().toISOString()
       });
 
@@ -399,14 +399,13 @@ export const signUpWithEmailReal = async (email: string, password: string, displ
         }
 
         const newUid = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=0D8ABC&color=fff`;
 
         const newAccount: StoredAccount = {
           uid: newUid,
           email: cleanEmail,
           passwordHash: cleanPassword,
           name: cleanName,
-          avatar: avatar,
+          avatar: '',
           createdAt: new Date().toISOString()
         };
 
@@ -416,7 +415,7 @@ export const signUpWithEmailReal = async (email: string, password: string, displ
           uid: newUid,
           name: cleanName,
           email: cleanEmail,
-          avatar: avatar,
+          avatar: '',
           isPro: true
         };
 

@@ -151,7 +151,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  const handleOAuthSelectAccount = (selectedName: string, selectedEmail: string, selectedAvatar?: string) => {
+  const handleOAuthSelectAccount = (selectedName: string, selectedEmail: string) => {
     setIsLoading(true);
     setActiveOAuth(null);
 
@@ -162,7 +162,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         uid: cleanUid,
         name: selectedName || 'Sibly Sadik Shimul',
         email: selectedEmail || 'shimul.cse28@gmail.com',
-        avatar: selectedAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        avatar: '',
         isPro: true
       };
 
@@ -178,7 +178,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         uid: 'demo_guest_user_shimul',
         name: 'Sibly Sadik Shimul',
         email: 'shimul.cse28@gmail.com',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        avatar: '',
         isPro: true
       };
       triggerSuccessLogin(demoUser);
@@ -625,17 +625,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <div className="space-y-2 mb-6">
                   {/* Primary Google Account */}
                   <button
-                    onClick={() => handleOAuthSelectAccount('Shimul Hossain', 'shimul.cse28@gmail.com')}
+                    onClick={() => handleOAuthSelectAccount('Sibly Sadik Shimul', 'shimul.cse28@gmail.com')}
                     className="w-full text-left p-3.5 rounded-2xl hover:bg-sky-50 border border-slate-200 hover:border-sky-300 flex items-center justify-between transition-all group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <img
-                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                        alt="Google Account Avatar"
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-sky-500/30"
-                      />
+                      <div className="w-10 h-10 rounded-full bg-sky-600 text-white font-black flex items-center justify-center text-sm">
+                        SH
+                      </div>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">Shimul Hossain</h4>
+                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">Sibly Sadik Shimul</h4>
                         <p className="text-[11px] text-slate-500">shimul.cse28@gmail.com</p>
                       </div>
                     </div>

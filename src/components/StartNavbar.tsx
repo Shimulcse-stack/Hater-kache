@@ -515,8 +515,6 @@ export default function StartNavbar({
             <span>{isBn ? 'Eng' : 'বাংলা'}</span>
           </button>
           <span className="text-slate-700">|</span>
-          <span className="hidden xs:inline text-slate-400 font-medium">BDT (৳)</span>
-          <span className="hidden xs:inline text-slate-700">|</span>
           <button
             onClick={() => {
               if (currentUser) {
@@ -856,18 +854,14 @@ export default function StartNavbar({
             )}
           </div>
 
-          {/* User Profile Avatar */}
+          {/* User Profile Button */}
           <div className="relative shrink-0" ref={profileDropdownRef}>
             <button
               onClick={() => setShowProfileModal(!showProfileModal)}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full ring-2 ring-orange-500/50 hover:ring-orange-400 overflow-hidden cursor-pointer transition-all shadow-md relative shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-orange-500/50 hover:border-orange-400 flex items-center justify-center text-orange-400 cursor-pointer transition-all shadow-md relative shrink-0"
               title={t('প্রোফাইল সেটিং', 'Profile Settings')}
             >
-              <img
-                src={currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                alt="User Profile"
-                className="w-full h-full object-cover"
-              />
+              <User className="w-4 h-4" />
               <span className="absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full border border-slate-900"></span>
             </button>
 
@@ -875,11 +869,9 @@ export default function StartNavbar({
             {showProfileModal && (
               <div className="fixed sm:absolute top-14 sm:top-full right-2 sm:right-0 mt-1 sm:mt-2 w-72 sm:w-80 max-w-[calc(100vw-1rem)] bg-slate-900/98 border border-slate-700 text-white rounded-2xl shadow-2xl p-4 z-50 backdrop-blur-2xl animate-scaleIn">
                 <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                  <img
-                    src={currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                    alt="User Profile"
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-sky-500"
-                  />
+                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
+                    <User className="w-5 h-5" />
+                  </div>
                   <div>
                     <h4 className="text-xs font-bold text-white">{currentUser?.name || 'User'}</h4>
                     <p className="text-[10px] text-sky-400 font-medium truncate max-w-[130px]">{currentUser?.email || 'user@example.com'}</p>
@@ -1306,7 +1298,6 @@ export default function StartNavbar({
                   <Globe className="w-3.5 h-3.5" />
                   <span>{isBn ? 'English (EN)' : 'বাংলা (BN)'}</span>
                 </button>
-                <span className="text-xs text-slate-400 font-mono">BDT (৳)</span>
               </div>
               {currentUser ? (
                 <button
