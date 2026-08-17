@@ -3215,7 +3215,7 @@ export default function AppHub({ externalSearchQuery, userId, userName }: AppHub
                   <option value="মার্কেটিং">{t('মার্কেটিং ও বিজ্ঞাপন (Ads)', 'Marketing & Ads')}</option>
                   <option value="শিক্ষা">{t('শিক্ষা ও ক্যারিয়ার (Education)', 'Education')}</option>
                   <option value="ব্যক্তিগত">{t('ব্যক্তিগত (Personal)', 'Personal')}</option>
-                  <option value="বিনোদন">{t('বিনোদন', 'Entertainment & Streaming')}</option>
+                  <option value="Entertainment & Streaming">{t('বিনোদন', 'Entertainment & Streaming')}</option>
                   <option value="ভ্রমণ">{t('ভ্রমণ', 'Travel & Ticketing')}</option>
                    <option value="সরকারি">{t('সরকারি', 'Utilities & Govt Services')}</option>
                    <option value="সংবাদ">{t('সংবাদ', 'News & Media')}</option>
