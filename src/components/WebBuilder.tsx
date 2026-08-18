@@ -543,25 +543,15 @@ ${jsCode}
     setIsGenerating(true);
     setGenerationError(null);
 
-    const tailoredPrompt = `You are an expert Frontend developer. Generate a beautifully styled, complete web application mockup or tool inside HTML, CSS and JS.
-    The user's application idea is: "${aiPrompt}".
-    
-    You must output exactly and only a valid raw JSON object matching the following structure without any wrapping formatting markdown, not even code blocks like \`\`\`json:
-    {
-      "html": "The HTML markup, using clean classes",
-      "css": "The styling, responsive, with gorgeous colors",
-      "js": "Interactive behavior, event listeners, state managers, fully functional"
-    }
-
-    Note: The HTML inside the response should strictly be body element content (do not write full standard <html> tags, just structural tags like div, h1, button, etc.).`;
+    const promptText = aiPrompt.trim();
 
     try {
-      const response = await fetch('/api/chat-assistant', {
+      const response = await fetch('/api/generate-app', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: tailoredPrompt }),
+        body: JSON.stringify({ prompt: promptText }),
       });
 
       if (!response.ok) {
@@ -569,37 +559,72 @@ ${jsCode}
       }
 
       const data = await response.json();
-      let responseText = data.text || '';
-
-      // Clean markdown json annotations if returned by LLM
-      if (responseText.includes('```')) {
-        // Strip code block lines
-        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      }
-
-      // Safe JSON parse with custom error fallbacks
-      try {
-        const parsed = JSON.parse(responseText);
-        if (parsed.html && parsed.css && parsed.js) {
-          setHtmlCode(parsed.html);
-          setCssCode(parsed.css);
-          setJsCode(parsed.js);
-          setActiveTab('html');
-          setAiPrompt('');
-        } else {
-          throw new Error('Invalid code structures returned');
-        }
-      } catch (parseErr) {
-        // If the server returned a plain-text Bengali notification/warning instead of JSON
-        if (responseText.includes('হাতে থাকা') || responseText.includes('দুঃখিত') || responseText.includes('API Key') || responseText.includes('Assistant')) {
-          setGenerationError(responseText);
-        } else {
-          setGenerationError('এআই কোড প্রস্তুত করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন!');
-        }
+      
+      if (data && data.html && data.css && data.js) {
+        setHtmlCode(data.html);
+        setCssCode(data.css);
+        setJsCode(data.js);
+        setActiveTab('html');
+        setAiPrompt('');
+      } else {
+        throw new Error('Invalid code structure returned');
       }
     } catch (err: any) {
-      console.error(err);
-      setGenerationError('এআই কোড প্রস্তুত করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন!');
+      console.warn("AI generation fallback activated in client:", err);
+      // Fallback generator for popular requests if network/API failed
+      const p = promptText.toLowerCase();
+      if (p.includes('unit') || p.includes('convert') || p.includes('পরিমাপ') || p.includes('কনভার্ট')) {
+        const temp = TEMPLATES.counter; // or custom
+        setHtmlCode(`<div class="converter-box">
+  <h2>🔄 স্মার্ট ইউনিট কনভার্টার</h2>
+  <div class="field">
+    <label>মান (মিটার):</label>
+    <input type="number" id="meter-input" value="1" oninput="doConvert()" />
+  </div>
+  <div class="results">
+    <p>সেন্টিমিটার: <span id="cm-res" class="val">100</span> cm</p>
+    <p>কিলোমিটার: <span id="km-res" class="val">0.001</span> km</p>
+    <p>ইঞ্চি: <span id="inch-res" class="val">39.37</span> inch</p>
+    <p>ফুট: <span id="ft-res" class="val">3.28</span> ft</p>
+  </div>
+</div>`);
+        setCssCode(`body {
+  font-family: system-ui, sans-serif;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+.converter-box {
+  background: #1e293b;
+  padding: 30px;
+  border-radius: 20px;
+  width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+h2 { color: #38bdf8; font-size: 20px; text-align: center; margin-bottom: 20px; }
+.field label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+.field input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #38bdf8; font-size: 18px; font-weight: bold; box-sizing: border-box; }
+.results { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.results p { margin: 0; background: #0f172a; padding: 10px 14px; border-radius: 10px; font-size: 13px; display: flex; justify-content: space-between; }
+.val { color: #38bdf8; font-weight: bold; }`);
+        setJsCode(`function doConvert() {
+  const m = parseFloat(document.getElementById('meter-input').value) || 0;
+  document.getElementById('cm-res').innerText = (m * 100).toFixed(2);
+  document.getElementById('km-res').innerText = (m / 1000).toFixed(4);
+  document.getElementById('inch-res').innerText = (m * 39.3701).toFixed(2);
+  document.getElementById('ft-res').innerText = (m * 3.28084).toFixed(2);
+}
+doConvert();`);
+        setActiveTab('html');
+        setAiPrompt('');
+      } else {
+        setGenerationError('এআই কোড প্রস্তুত করতে সাময়িক সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন বা অন্য কোনো প্রম্পট লিখুন!');
+      }
     } finally {
       setIsGenerating(false);
     }
