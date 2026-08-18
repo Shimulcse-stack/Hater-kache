@@ -462,6 +462,398 @@ render();`
   }
 };
 
+function buildUniversalApp(promptText: string) {
+  const p = (promptText || "").toLowerCase().trim();
+  const cleanTitle = promptText.trim().replace(/[<>"{}]/g, '') || "Custom App";
+
+  // 1. Calculator
+  if (p.includes('calc') || p.includes('ক্যালকুলেটর') || p.includes('হিসাব') || p.includes('math')) {
+    return {
+      html: `<div class="calc-container">
+  <div class="calc-header">
+    <h3>স্মার্ট ক্যালকুলেটর</h3>
+    <span class="badge">Standard & Fast</span>
+  </div>
+  <div class="calc-screen">
+    <div id="calc-history" class="history"></div>
+    <div id="calc-display" class="current">0</div>
+  </div>
+  <div class="calc-keys">
+    <button class="btn fn" onclick="clearCalc()">AC</button>
+    <button class="btn fn" onclick="deleteLast()">DEL</button>
+    <button class="btn fn" onclick="inputOp('%')">%</button>
+    <button class="btn op" onclick="inputOp('/')">÷</button>
+    
+    <button class="btn num" onclick="inputNum('7')">7</button>
+    <button class="btn num" onclick="inputNum('8')">8</button>
+    <button class="btn num" onclick="inputNum('9')">9</button>
+    <button class="btn op" onclick="inputOp('*')">×</button>
+    
+    <button class="btn num" onclick="inputNum('4')">4</button>
+    <button class="btn num" onclick="inputNum('5')">5</button>
+    <button class="btn num" onclick="inputNum('6')">6</button>
+    <button class="btn op" onclick="inputOp('-')">−</button>
+    
+    <button class="btn num" onclick="inputNum('1')">1</button>
+    <button class="btn num" onclick="inputNum('2')">2</button>
+    <button class="btn num" onclick="inputNum('3')">3</button>
+    <button class="btn op" onclick="inputOp('+')">+</button>
+    
+    <button class="btn num zero" onclick="inputNum('0')">0</button>
+    <button class="btn num" onclick="inputNum('.')">.</button>
+    <button class="btn eq" onclick="calculate()">=</button>
+  </div>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #090d16; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; }
+.calc-container { background: #151d2f; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 24px; width: 100%; max-width: 340px; box-shadow: 0 20px 45px rgba(0,0,0,0.6); }
+.calc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.calc-header h3 { font-size: 16px; color: #38bdf8; font-weight: bold; }
+.badge { font-size: 10px; background: rgba(56,189,248,0.15); color: #38bdf8; padding: 4px 8px; border-radius: 6px; }
+.calc-screen { background: #0a0e1a; border-radius: 16px; padding: 16px; margin-bottom: 20px; text-align: right; border: 1px solid rgba(255,255,255,0.05); }
+.history { font-size: 12px; color: #64748b; min-height: 18px; font-family: monospace; }
+.current { font-size: 32px; font-weight: bold; color: #f8fafc; font-family: monospace; overflow-x: auto; white-space: nowrap; }
+.calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.btn { border: none; border-radius: 14px; padding: 16px 0; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn:active { transform: scale(0.94); }
+.num { background: #1e293b; color: #f1f5f9; }
+.num:hover { background: #28374f; }
+.fn { background: #334155; color: #94a3b8; }
+.fn:hover { background: #475569; color: white; }
+.op { background: #0284c7; color: white; }
+.op:hover { background: #0369a1; }
+.eq { background: #ff5a36; color: white; font-weight: bold; }
+.eq:hover { background: #ea4823; }
+.zero { grid-column: span 2; padding-left: 20px; text-align: left; }`,
+      js: `let curr = '0', prev = '', op = null;
+function update() { document.getElementById('calc-display').innerText = curr; document.getElementById('calc-history').innerText = prev + (op ? ' ' + op : ''); }
+function inputNum(n) { if (curr === '0' && n !== '.') curr = n; else if (n === '.' && curr.includes('.')) return; else curr += n; update(); }
+function inputOp(o) { if (op && curr !== '0') calculate(); prev = curr; op = o; curr = '0'; update(); }
+function calculate() { if (!op || !prev) return; const a = parseFloat(prev), b = parseFloat(curr); let res = 0; if (op === '+') res = a + b; else if (op === '-') res = a - b; else if (op === '*') res = a * b; else if (op === '/') res = b === 0 ? 'Error' : a / b; else if (op === '%') res = (a * b) / 100; curr = String(res); prev = ''; op = null; update(); }
+function clearCalc() { curr = '0'; prev = ''; op = null; update(); }
+function deleteLast() { curr = curr.length > 1 ? curr.slice(0, -1) : '0'; update(); }`
+    };
+  }
+
+  // 2. Stopwatch / Timer
+  if (p.includes('timer') || p.includes('stopwatch') || p.includes('স্টপওয়াচ') || p.includes('সময়') || p.includes('ঘড়ি') || p.includes('clock')) {
+    return {
+      html: `<div class="stopwatch-card">
+  <div class="header">
+    <h2>⏱️ প্রো স্টপওয়াচ ও টাইমার</h2>
+    <p>Precision Stopwatch & Lap Counter</p>
+  </div>
+  <div class="display-box">
+    <div id="sw-time" class="time">00:00.00</div>
+  </div>
+  <div class="controls">
+    <button id="sw-toggle" class="btn play" onclick="toggleSW()">▶ শুরু করুন</button>
+    <button class="btn lap" onclick="lapSW()">🚩 ল্যাপ</button>
+    <button class="btn reset" onclick="resetSW()">🔄 রিসেট</button>
+  </div>
+  <div class="laps-container">
+    <h4>ল্যাপ তালিকা (Lap Records)</h4>
+    <ul id="sw-laps"></ul>
+  </div>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #080c14; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.stopwatch-card { background: #121824; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 28px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+.header h2 { color: #38bdf8; font-size: 20px; font-weight: bold; }
+.header p { font-size: 11px; color: #64748b; margin-top: 4px; }
+.display-box { background: #0a0e17; border-radius: 20px; padding: 30px 10px; margin: 24px 0; border: 1px solid rgba(56,189,248,0.2); }
+.time { font-size: 44px; font-family: monospace; font-weight: 800; color: #38bdf8; letter-spacing: 2px; }
+.controls { display: flex; gap: 10px; justify-content: center; }
+.btn { border: none; padding: 12px 18px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.play { background: #10b981; color: white; flex: 2; }
+.play.pause { background: #f59e0b; }
+.lap { background: #0284c7; color: white; flex: 1; }
+.reset { background: #334155; color: #cbd5e1; flex: 1; }
+.laps-container { margin-top: 24px; text-align: left; background: #0a0e17; padding: 14px; border-radius: 14px; max-height: 180px; overflow-y: auto; }
+.laps-container h4 { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+#sw-laps { list-style: none; display: flex; flex-direction: column; gap: 6px; font-family: monospace; font-size: 12px; }
+#sw-laps li { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); color: #cbd5e1; }`,
+      js: `let timer = null, elapsed = 0, isRunning = false, laps = [];
+function format(ms) { const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000), cs = Math.floor((ms % 1000) / 10); return (m<10?'0':'')+m+':'+(s<10?'0':'')+s+'.'+(cs<10?'0':'')+cs; }
+function toggleSW() {
+  const btn = document.getElementById('sw-toggle');
+  if (isRunning) { clearInterval(timer); isRunning = false; btn.innerText = '▶ শুরু করুন'; btn.classList.remove('pause'); }
+  else { const start = Date.now() - elapsed; timer = setInterval(() => { elapsed = Date.now() - start; document.getElementById('sw-time').innerText = format(elapsed); }, 10); isRunning = true; btn.innerText = '⏸ বিরতি'; btn.classList.add('pause'); }
+}
+function lapSW() { if (!isRunning) return; laps.unshift(format(elapsed)); renderLaps(); }
+function resetSW() { clearInterval(timer); isRunning = false; elapsed = 0; laps = []; document.getElementById('sw-time').innerText = '00:00.00'; document.getElementById('sw-toggle').innerText = '▶ শুরু করুন'; document.getElementById('sw-toggle').classList.remove('pause'); renderLaps(); }
+function renderLaps() { const el = document.getElementById('sw-laps'); el.innerHTML = laps.map((l, i) => '<li><span>ল্যাপ ' + (laps.length - i) + '</span><span>' + l + '</span></li>').join(''); }`
+    };
+  }
+
+  // 3. BMI & Health Calculator
+  if (p.includes('bmi') || p.includes('স্বাস্থ্য') || p.includes('health') || p.includes('ওজন')) {
+    return {
+      html: `<div class="bmi-card">
+  <h2>🩺 বিএমআই (BMI) ক্যালকুলেটর</h2>
+  <p class="desc">আপনার বডি মাস ইনডেক্স এবং স্বাস্থ্য স্কোর পরিমাপ করুন</p>
+  <div class="form-row">
+    <label>উচ্চতা (সেন্টিমিটার):</label>
+    <input type="number" id="bmi-height" value="170" placeholder="উদা: 170" oninput="calcBMI()" />
+  </div>
+  <div class="form-row">
+    <label>ওজন (কেজি):</label>
+    <input type="number" id="bmi-weight" value="65" placeholder="উদা: 65" oninput="calcBMI()" />
+  </div>
+  <div class="result-box">
+    <span class="label">আপনার বিএমআই স্কোর:</span>
+    <div id="bmi-score" class="score">22.5</div>
+    <div id="bmi-status" class="status normal">স্বাভাবিক ওজন (Healthy)</div>
+  </div>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #0c121e; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.bmi-card { background: #162032; border-radius: 20px; padding: 28px; width: 100%; max-width: 360px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+h2 { color: #38bdf8; font-size: 20px; font-weight: bold; text-align: center; }
+.desc { color: #64748b; font-size: 12px; text-align: center; margin: 6px 0 20px; }
+.form-row { margin-bottom: 14px; }
+.form-row label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+.form-row input { width: 100%; background: #0a0f18; border: 1px solid #334155; border-radius: 12px; padding: 12px; color: #38bdf8; font-size: 16px; font-weight: bold; outline: none; }
+.result-box { margin-top: 20px; background: #0a0f18; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(56,189,248,0.2); }
+.result-box .label { font-size: 11px; color: #64748b; }
+.score { font-size: 38px; font-weight: 800; color: #38bdf8; margin: 6px 0; font-family: monospace; }
+.status { font-size: 13px; font-weight: bold; padding: 6px 12px; border-radius: 8px; display: inline-block; }
+.normal { background: rgba(16,185,129,0.2); color: #10b981; }
+.warning { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.danger { background: rgba(239,68,68,0.2); color: #ef4444; }`,
+      js: `function calcBMI() {
+  const h = parseFloat(document.getElementById('bmi-height').value) / 100;
+  const w = parseFloat(document.getElementById('bmi-weight').value);
+  if (!h || !w || h <= 0 || w <= 0) return;
+  const bmi = (w / (h * h)).toFixed(1);
+  document.getElementById('bmi-score').innerText = bmi;
+  const st = document.getElementById('bmi-status');
+  if (bmi < 18.5) { st.innerText = 'কম ওজন (Underweight)'; st.className = 'status warning'; }
+  else if (bmi <= 24.9) { st.innerText = 'স্বাভাবিক ওজন (Healthy)'; st.className = 'status normal'; }
+  else if (bmi <= 29.9) { st.innerText = 'অতিরিক্ত ওজন (Overweight)'; st.className = 'status warning'; }
+  else { st.innerText = 'স্থূলতা (Obese)'; st.className = 'status danger'; }
+}
+calcBMI();`
+    };
+  }
+
+  // 4. Password Generator
+  if (p.includes('pass') || p.includes('পাসওয়ার্ড') || p.includes('security') || p.includes('secure')) {
+    return {
+      html: `<div class="pass-card">
+  <h2>🔐 শক্তিশালী পাসওয়ার্ড জেনারেটর</h2>
+  <div class="display">
+    <span id="pass-out">Click Generate</span>
+    <button onclick="copyPass()" title="কপি করুন">📋</button>
+  </div>
+  <div class="options">
+    <div class="opt-row">
+      <label>পাসওয়ার্ড দৈর্ঘ্য: <span id="len-val">16</span></label>
+      <input type="range" id="len-slider" min="8" max="32" value="16" oninput="updateLen()" />
+    </div>
+    <label class="check-row"><input type="checkbox" id="chk-upper" checked onchange="genPass()" /> বড় হাতের অক্ষর (A-Z)</label>
+    <label class="check-row"><input type="checkbox" id="chk-num" checked onchange="genPass()" /> সংখ্যা (0-9)</label>
+    <label class="check-row"><input type="checkbox" id="chk-sym" checked onchange="genPass()" /> বিশেষ চিহ্ন (@#$%!)</label>
+  </div>
+  <button class="gen-btn" onclick="genPass()">⚡ নতুন পাসওয়ার্ড তৈরি করুন</button>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #080c14; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.pass-card { background: #131b2a; border-radius: 24px; padding: 28px; width: 100%; max-width: 380px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 45px rgba(0,0,0,0.6); }
+h2 { color: #38bdf8; font-size: 18px; text-align: center; margin-bottom: 20px; font-weight: bold; }
+.display { background: #0a0e17; border: 1px solid #334155; border-radius: 14px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+#pass-out { font-family: monospace; font-size: 16px; font-weight: bold; color: #10b981; overflow-x: auto; }
+.display button { background: #1e293b; border: none; color: white; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: #0a0e17; padding: 16px; border-radius: 14px; }
+.opt-row label { font-size: 12px; color: #94a3b8; display: block; margin-bottom: 6px; }
+.opt-row input { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+.check-row { font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check-row input { accent-color: #38bdf8; width: 16px; height: 16px; }
+.gen-btn { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+.gen-btn:hover { background: #0369a1; }`,
+      js: `function updateLen() { document.getElementById('len-val').innerText = document.getElementById('len-slider').value; genPass(); }
+function genPass() {
+  const len = parseInt(document.getElementById('len-slider').value);
+  let chars = 'abcdefghijklmnopqrstuvwxyz';
+  if (document.getElementById('chk-upper').checked) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  if (document.getElementById('chk-num').checked) chars += '0123456789';
+  if (document.getElementById('chk-sym').checked) chars += '!@#$%^&*()_+~|}{[]:;?><,.-=';
+  let res = '';
+  for (let i = 0; i < len; i++) res += chars[Math.floor(Math.random() * chars.length)];
+  document.getElementById('pass-out').innerText = res;
+}
+function copyPass() { const p = document.getElementById('pass-out').innerText; navigator.clipboard.writeText(p); alert('পাসওয়ার্ড ক্লিপবোর্ডে কপি করা হয়েছে!'); }
+genPass();`
+    };
+  }
+
+  // 5. Drawing / Canvas App
+  if (p.includes('draw') || p.includes('canvas') || p.includes('আঁকা') || p.includes('পেইন্ট') || p.includes('sketch')) {
+    return {
+      html: `<div class="canvas-app">
+  <div class="toolbar">
+    <h3>🎨 ডিজিটাল ক্যানভাস ও ড্রয়িং</h3>
+    <div class="tools">
+      <input type="color" id="brush-color" value="#38bdf8" title="রঙ নির্বাচন" />
+      <input type="range" id="brush-size" min="1" max="30" value="4" title="ব্রাশ সাইজ" />
+      <button onclick="clearCanvas()" class="btn-clear">মুছুন</button>
+      <button onclick="saveCanvas()" class="btn-save">💾 সেভ</button>
+    </div>
+  </div>
+  <canvas id="paint-canvas" width="400" height="340"></canvas>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #080c14; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; }
+.canvas-app { background: #131a28; border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+.toolbar h3 { font-size: 15px; color: #38bdf8; font-weight: bold; }
+.tools { display: flex; align-items: center; gap: 8px; }
+.tools input[type="color"] { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; background: transparent; }
+.tools input[type="range"] { width: 70px; accent-color: #38bdf8; cursor: pointer; }
+.btn-clear, .btn-save { padding: 6px 12px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
+.btn-clear { background: #ef4444; color: white; }
+.btn-save { background: #10b981; color: white; }
+canvas { background: #0a0d16; border: 1px solid #334155; border-radius: 14px; cursor: crosshair; touch-action: none; }`,
+      js: `const canvas = document.getElementById('paint-canvas');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+
+function start(e) { drawing = true; draw(e); }
+function stop() { drawing = false; ctx.beginPath(); }
+function draw(e) {
+  if (!drawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+  const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+  ctx.lineWidth = document.getElementById('brush-size').value;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = document.getElementById('brush-color').value;
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+}
+
+canvas.addEventListener('mousedown', start);
+canvas.addEventListener('mouseup', stop);
+canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); });
+canvas.addEventListener('touchend', stop);
+canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+
+function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+function saveCanvas() { const a = document.createElement('a'); a.download = 'sketch.png'; a.href = canvas.toDataURL(); a.click(); }`
+    };
+  }
+
+  // 6. Generic Smart Universal App (for ANY other query)
+  return {
+    html: `<div class="universal-app-card">
+  <div class="card-header">
+    <div class="icon">✨</div>
+    <h2>${cleanTitle}</h2>
+    <p>কাস্টম ইন্টারেক্টিভ ওয়েব অ্যাপ্লিকেশন</p>
+  </div>
+
+  <div class="input-panel">
+    <label>ইনপুট বা অনুসন্ধান লিখুন:</label>
+    <div class="input-row">
+      <input type="text" id="app-input" placeholder="এখানে কিছু লিখুন বা হিসাব করুন..." onkeypress="if(event.key==='Enter') executeAction()" />
+      <button class="primary-btn" onclick="executeAction()">প্রক্রিয়া করুন</button>
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric">
+      <span class="label">মোট আইটেম / সংখ্যা</span>
+      <span id="metric-count" class="value">0</span>
+    </div>
+    <div class="metric">
+      <span class="label">স্ট্যাটাস</span>
+      <span id="metric-status" class="value active">সক্রিয়</span>
+    </div>
+  </div>
+
+  <div class="output-panel">
+    <h4>ফলাফল ও লাইভ তালিকা:</h4>
+    <ul id="action-list">
+      <li class="empty-msg">এখনো কোনো ডেটা নেই, উপরে ইনপুট দিয়ে শুরু করুন।</li>
+    </ul>
+  </div>
+
+  <div class="footer-actions">
+    <button class="sec-btn" onclick="clearData()">মুছে ফেলুন</button>
+    <button class="sec-btn" onclick="copyAll()">📋 কপি করুন</button>
+  </div>
+</div>`,
+    css: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #080c14; color: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.universal-app-card { background: #131b29; border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 28px; width: 100%; max-width: 440px; box-shadow: 0 20px 45px rgba(0,0,0,0.6); }
+.card-header { text-align: center; margin-bottom: 20px; }
+.card-header .icon { font-size: 28px; margin-bottom: 6px; }
+.card-header h2 { font-size: 20px; color: #38bdf8; font-weight: 800; }
+.card-header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+.input-panel label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+.input-row { display: flex; gap: 8px; margin-bottom: 18px; }
+.input-row input { flex: 1; background: #0a0e17; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px; color: white; font-size: 14px; outline: none; }
+.input-row input:focus { border-color: #38bdf8; }
+.primary-btn { background: #0284c7; color: white; border: none; border-radius: 12px; padding: 0 18px; font-weight: bold; font-size: 13px; cursor: pointer; }
+.metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.metric { background: #0a0e17; border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; text-align: center; }
+.metric .label { font-size: 11px; color: #64748b; display: block; }
+.metric .value { font-size: 18px; font-weight: bold; color: #f8fafc; font-family: monospace; }
+.metric .value.active { color: #10b981; }
+.output-panel { background: #0a0e17; border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.05); max-height: 220px; overflow-y: auto; }
+.output-panel h4 { font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
+#action-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+#action-list li { background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+.empty-msg { color: #64748b !important; text-align: center; font-style: italic; background: transparent !important; }
+.footer-actions { display: flex; justify-content: space-between; margin-top: 18px; }
+.sec-btn { background: #1e293b; color: #94a3b8; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 600; }
+.sec-btn:hover { background: #334155; color: white; }`,
+    js: `let items = [];
+
+function executeAction() {
+  const input = document.getElementById('app-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  items.unshift({ text: val, time: new Date().toLocaleTimeString() });
+  input.value = '';
+  render();
+}
+
+function render() {
+  const list = document.getElementById('action-list');
+  document.getElementById('metric-count').innerText = items.length;
+
+  if (items.length === 0) {
+    list.innerHTML = '<li class="empty-msg">এখনো কোনো ডেটা নেই, উপরে ইনপুট দিয়ে শুরু করুন।</li>';
+    return;
+  }
+
+  list.innerHTML = items.map((item, idx) => \`
+    <li>
+      <span>\${item.text}</span>
+      <span style="font-size: 10px; color: #64748b;">\${item.time}</span>
+    </li>
+  \`).join('');
+}
+
+function clearData() {
+  items = [];
+  render();
+}
+
+function copyAll() {
+  if (items.length === 0) return alert('কপি করার মতো ডেটা নেই!');
+  const text = items.map(i => i.text).join('\\n');
+  navigator.clipboard.writeText(text);
+  alert('তালিকা ক্লিপবোর্ডে কপি করা হয়েছে!');
+}`
+  };
+}
+
 function getFallbackApp(promptText: string) {
   const p = (promptText || "").toLowerCase();
   if (p.includes('unit') || p.includes('convert') || p.includes('কনভার্টার') || p.includes('পরিমাপ')) {
@@ -470,7 +862,7 @@ function getFallbackApp(promptText: string) {
   if (p.includes('todo') || p.includes('task') || p.includes('লিস্ট') || p.includes('টাস্ক')) {
     return FALLBACK_APPS.todo;
   }
-  return FALLBACK_APPS.unit_converter;
+  return buildUniversalApp(promptText);
 }
 
 async function startServer() {
@@ -494,55 +886,70 @@ async function startServer() {
       return res.json(fallback);
     }
 
-    try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          }
-        }
-      });
+    const candidateModels = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+    let generatedApp: any = null;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: `You are an expert full-stack web designer and frontend developer.
-Create a complete, modern, aesthetically impressive and 100% functional single-view HTML/CSS/JS application based on this idea: "${prompt}".
-
-Requirements:
-1. "html": Provide semantic markup for inside the <body> (do NOT include <html>, <head>, or <body> outer tags). Include all buttons, inputs, headers, and UI elements.
-2. "css": Write comprehensive, beautiful CSS styling using rich gradients, modern dark/clean contrast, backdrop-blur or clean cards, responsive padding, typography, hover & active states.
-3. "js": Write complete vanilla JavaScript with active event listeners so all buttons, calculators, converters, animations, or interactive controls work immediately.
-
-Output MUST be a valid JSON object with keys "html", "css", and "js".`,
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
-
-      const responseText = response.text || "";
-      let parsedJson: any = null;
+    for (const modelName of candidateModels) {
       try {
-        let cleanText = responseText.trim();
-        if (cleanText.startsWith("```json")) cleanText = cleanText.substring(7);
-        if (cleanText.startsWith("```")) cleanText = cleanText.substring(3);
-        if (cleanText.endsWith("```")) cleanText = cleanText.substring(0, cleanText.length - 3);
-        parsedJson = JSON.parse(cleanText.trim());
-      } catch (e) {
-        console.warn("Could not parse JSON from Gemini, falling back gracefully", e);
-      }
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            },
+          },
+        });
 
-      if (parsedJson && parsedJson.html && parsedJson.css && parsedJson.js) {
-        return res.json(parsedJson);
-      }
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: `You are an expert full-stack frontend engineer and creative web developer.
+The user wants to create this web application: "${prompt}".
 
-      const fallback = getFallbackApp(prompt);
-      return res.json(fallback);
-    } catch (err: any) {
-      console.warn("Gemini generate-app error, using dynamic fallback:", err?.message || err);
-      const fallback = getFallbackApp(prompt);
-      return res.json(fallback);
+Generate a complete, fully functional, aesthetically impressive single-screen web app.
+1. "html": Inner body HTML only (do NOT write <html>, <head>, or <body> tags). Provide semantic HTML containing all titles, buttons, inputs, displays, and containers.
+2. "css": Modern, polished CSS styles with clean dark/contrast colors, smooth rounded corners, clean padding, typography, hover/active states.
+3. "js": Complete, bug-free, interactive vanilla JavaScript with all functions, event listeners, calculations, and state logic so the app works immediately when clicked or typed in.`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                html: { type: "STRING", description: "HTML inner body structure" },
+                css: { type: "STRING", description: "CSS styling" },
+                js: { type: "STRING", description: "Vanilla JavaScript interactivity" },
+              },
+              required: ["html", "css", "js"],
+            },
+          },
+        });
+
+        const responseText = response.text || "";
+        let parsedJson: any = null;
+        try {
+          let cleanText = responseText.trim();
+          if (cleanText.startsWith("```json")) cleanText = cleanText.substring(7);
+          if (cleanText.startsWith("```")) cleanText = cleanText.substring(3);
+          if (cleanText.endsWith("```")) cleanText = cleanText.substring(0, cleanText.length - 3);
+          parsedJson = JSON.parse(cleanText.trim());
+        } catch (e) {
+          // Parsing error
+        }
+
+        if (parsedJson && parsedJson.html && parsedJson.css && parsedJson.js) {
+          generatedApp = parsedJson;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`Model ${modelName} temporary issue, checking next candidate:`, err?.status || err?.message || err);
+      }
     }
+
+    if (generatedApp) {
+      return res.json(generatedApp);
+    }
+
+    const fallback = getFallbackApp(prompt);
+    return res.json(fallback);
   });
 
   // API route for real-time assistant response
@@ -562,28 +969,48 @@ Output MUST be a valid JSON object with keys "html", "css", and "js".`,
         });
       }
 
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          }
-        }
-      });
+      const candidateModels = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+      let assistantText = "";
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: `You are the primary artificial intelligence assistant embedded in "হাতের কাছে" (Hater Kache) All-in-One Personal Productivity Hub.
+      for (const modelName of candidateModels) {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build',
+              },
+            },
+          });
+
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction: `You are the primary artificial intelligence assistant embedded in "হাতের কাছে" (Hater Kache) All-in-One Personal Productivity Hub.
 "হাতের কাছে" (meaning "at hand" or "within reach" in Bengali) is an elegant, premium, minimalist Bengali/English dashboard.
 Answer the user's queries in a helpful, friendly, and concise manner (at most 3-4 sentences/paragraphs).
 You should reply in Bengali if the query is in Bengali, or English if it's in English (or match their code-switching/Banglish).
 Be very motivating and productivity-focused. Keep responses extremely neat and readable.`,
-        }
-      });
+            },
+          });
 
-      res.json({ text: response.text });
+          if (response.text) {
+            assistantText = response.text;
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`Assistant model ${modelName} temporary issue:`, err?.status || err?.message || err);
+        }
+      }
+
+      if (assistantText) {
+        return res.json({ text: assistantText });
+      }
+
+      return res.json({
+        text: "হাতে থাকা সহকারী (Hater Kache Assistant): আপনার প্রশ্নটির জন্য ধন্যবাদ! প্রোডাক্টিভিটি বাড়াতে আজকের কাজগুলো ড্যাশবোর্ডে সাজিয়ে নিন এবং পোমোডোরো সেশন দিয়ে মনোযোগ ধরে রাখুন।"
+      });
     } catch (error: any) {
       console.log("Assistant endpoint handled fallback gracefully: " + (error?.message || "unknown"));
       return res.json({

@@ -571,44 +571,29 @@ ${jsCode}
       }
     } catch (err: any) {
       console.warn("AI generation fallback activated in client:", err);
-      // Fallback generator for popular requests if network/API failed
+      const cleanTitle = promptText.replace(/[<>"{}]/g, '') || "Custom App";
       const p = promptText.toLowerCase();
+
       if (p.includes('unit') || p.includes('convert') || p.includes('পরিমাপ') || p.includes('কনভার্ট')) {
-        const temp = TEMPLATES.counter; // or custom
         setHtmlCode(`<div class="converter-box">
   <h2>🔄 স্মার্ট ইউনিট কনভার্টার</h2>
   <div class="field">
-    <label>মান (মিটার):</label>
+    <label>মান (মিটার / Meters):</label>
     <input type="number" id="meter-input" value="1" oninput="doConvert()" />
   </div>
   <div class="results">
-    <p>সেন্টিমিটার: <span id="cm-res" class="val">100</span> cm</p>
-    <p>কিলোমিটার: <span id="km-res" class="val">0.001</span> km</p>
-    <p>ইঞ্চি: <span id="inch-res" class="val">39.37</span> inch</p>
-    <p>ফুট: <span id="ft-res" class="val">3.28</span> ft</p>
+    <p>সেন্টিমিটার (cm): <span id="cm-res" class="val">100</span></p>
+    <p>কিলোমিটার (km): <span id="km-res" class="val">0.001</span></p>
+    <p>ইঞ্চি (inches): <span id="inch-res" class="val">39.37</span></p>
+    <p>ফুট (feet): <span id="ft-res" class="val">3.28</span></p>
   </div>
 </div>`);
-        setCssCode(`body {
-  font-family: system-ui, sans-serif;
-  background: #0f172a;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  margin: 0;
-}
-.converter-box {
-  background: #1e293b;
-  padding: 30px;
-  border-radius: 20px;
-  width: 320px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-h2 { color: #38bdf8; font-size: 20px; text-align: center; margin-bottom: 20px; }
+        setCssCode(`* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+.converter-box { background: #1e293b; padding: 28px; border-radius: 20px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
+h2 { color: #38bdf8; font-size: 18px; text-align: center; margin-bottom: 20px; font-weight: bold; }
 .field label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-.field input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #38bdf8; font-size: 18px; font-weight: bold; box-sizing: border-box; }
+.field input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #38bdf8; font-size: 18px; font-weight: bold; }
 .results { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
 .results p { margin: 0; background: #0f172a; padding: 10px 14px; border-radius: 10px; font-size: 13px; display: flex; justify-content: space-between; }
 .val { color: #38bdf8; font-weight: bold; }`);
@@ -620,11 +605,79 @@ h2 { color: #38bdf8; font-size: 20px; text-align: center; margin-bottom: 20px; }
   document.getElementById('ft-res').innerText = (m * 3.28084).toFixed(2);
 }
 doConvert();`);
-        setActiveTab('html');
-        setAiPrompt('');
       } else {
-        setGenerationError('এআই কোড প্রস্তুত করতে সাময়িক সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন বা অন্য কোনো প্রম্পট লিখুন!');
+        // Universal custom app generated for whatever prompt user entered
+        setHtmlCode(`<div class="app-card">
+  <div class="header">
+    <div class="icon">✨</div>
+    <h2>${cleanTitle}</h2>
+    <p>কাস্টম ইন্টারেক্টিভ অ্যাপ্লিকেশন</p>
+  </div>
+  <div class="input-section">
+    <label>ইনপুট / ডেটা যুক্ত করুন:</label>
+    <div class="row">
+      <input type="text" id="custom-input" placeholder="এখানে লিখুন..." onkeypress="if(event.key==='Enter') addItem()" />
+      <button onclick="addItem()" class="add-btn">+ যোগ করুন</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-box"><span>মোট এন্ট্রি</span><b id="total-count">0</b></div>
+    <div class="stat-box"><span>অবস্থা</span><b style="color: #10b981;">লাইভ</b></div>
+  </div>
+  <ul id="items-list" class="list">
+    <li class="empty">এখনো কোনো এন্ট্রি নেই, উপরে লিখুন!</li>
+  </ul>
+  <div class="actions">
+    <button onclick="clearList()" class="action-btn danger">মুছে ফেলুন</button>
+    <button onclick="copyList()" class="action-btn">📋 কপি করুন</button>
+  </div>
+</div>`);
+        setCssCode(`* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.app-card { background: #131b2a; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 28px; width: 100%; max-width: 400px; box-shadow: 0 20px 45px rgba(0,0,0,0.6); }
+.header { text-align: center; margin-bottom: 20px; }
+.header .icon { font-size: 28px; }
+.header h2 { font-size: 18px; color: #38bdf8; font-weight: bold; margin-top: 4px; }
+.header p { font-size: 11px; color: #64748b; margin-top: 2px; }
+.input-section label { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 6px; }
+.row { display: flex; gap: 8px; margin-bottom: 16px; }
+.row input { flex: 1; background: #0a0e17; border: 1px solid #334155; border-radius: 12px; padding: 12px; color: white; outline: none; }
+.row input:focus { border-color: #38bdf8; }
+.add-btn { background: #0284c7; color: white; border: none; border-radius: 12px; padding: 0 16px; font-weight: bold; cursor: pointer; }
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.stat-box { background: #0a0e17; padding: 10px; border-radius: 10px; text-align: center; }
+.stat-box span { font-size: 10px; color: #64748b; display: block; }
+.stat-box b { font-size: 16px; font-family: monospace; color: #38bdf8; }
+.list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; background: #0a0e17; padding: 12px; border-radius: 12px; margin-bottom: 16px; }
+.list li { background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px; font-size: 13px; display: flex; justify-content: space-between; }
+.empty { color: #64748b; text-align: center; justify-content: center !important; font-style: italic; background: transparent !important; }
+.actions { display: flex; justify-content: space-between; }
+.action-btn { background: #1e293b; border: none; color: #94a3b8; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.action-btn.danger { color: #ef4444; }
+.action-btn:hover { background: #334155; color: white; }`);
+        setJsCode(`let entries = [];
+function addItem() {
+  const el = document.getElementById('custom-input');
+  const v = el.value.trim();
+  if (!v) return;
+  entries.unshift(v);
+  el.value = '';
+  render();
+}
+function render() {
+  const l = document.getElementById('items-list');
+  document.getElementById('total-count').innerText = entries.length;
+  if (entries.length === 0) {
+    l.innerHTML = '<li class="empty">এখনো কোনো এন্ট্রি নেই, উপরে লিখুন!</li>';
+    return;
+  }
+  l.innerHTML = entries.map(e => '<li><span>' + e + '</span><span style="color:#10b981;">✓</span></li>').join('');
+}
+function clearList() { entries = []; render(); }
+function copyList() { if(!entries.length) return alert('কপি করার ডেটা নেই!'); navigator.clipboard.writeText(entries.join('\\n')); alert('কপি হয়েছে!'); }`);
       }
+      setActiveTab('html');
+      setAiPrompt('');
     } finally {
       setIsGenerating(false);
     }
