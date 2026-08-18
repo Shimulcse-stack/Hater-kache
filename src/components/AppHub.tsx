@@ -3207,7 +3207,6 @@ export default function AppHub({ externalSearchQuery, userId, userName }: AppHub
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 text-slate-800 dark:text-white font-medium cursor-pointer"
                 >
                   <option value="চাকরি ও আবেদন">{t('সরকারি-বেসরকারি চাকরি (Jobs)', 'Jobs & Applications')}</option>
-                   <option value="AI Tools">{t('AI Tools', 'AI Tools')}</option>
                   <option value="ছবি ও স্টুডিও">{t('ছবি ও ফটো স্টুডিও (Photo)', 'Photo & Studio')}</option>
                   <option value="প্রিন্ট ও ডকুমেন্ট">{t('সিভি ও প্রিন্টিং সেবা (Print)', 'Print & Documents')}</option>
                   <option value="হিসাব-নিকাশ">{t('আইটি ও হিসাব-নিকাশ (IT)', 'IT & Calculations')}</option>
@@ -3215,10 +3214,6 @@ export default function AppHub({ externalSearchQuery, userId, userName }: AppHub
                   <option value="মার্কেটিং">{t('মার্কেটিং ও বিজ্ঞাপন (Ads)', 'Marketing & Ads')}</option>
                   <option value="শিক্ষা">{t('শিক্ষা ও ক্যারিয়ার (Education)', 'Education')}</option>
                   <option value="ব্যক্তিগত">{t('ব্যক্তিগত (Personal)', 'Personal')}</option>
-                  <option value="Entertainment & Streaming">{t('বিনোদন', 'Entertainment & Streaming')}</option>
-                  <option value="ভ্রমণ">{t('ভ্রমণ', 'Travel & Ticketing')}</option>
-                   <option value="সরকারি">{t('সরকারি', 'Utilities & Govt Services')}</option>
-                   <option value="সংবাদ">{t('সংবাদ', 'News & Media')}</option>
                   <option value="custom">{t('+ নতুন ক্যাটাগরি তৈরি করুন (New Category)', '+ Add New Custom Category')}</option>
                 </select>
               </div>
